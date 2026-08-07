@@ -1,0 +1,76 @@
+# Local development dependencies for TFT Codex (design.md §13).
+#
+# Postgres  — source of truth for entities (comps, users, saved boards, raw matches)
+# Redis     — tier-list cache, Riot rate-limit token bucket, job queue, lobby-intel cache
+# ClickHouse — OLAP rollups, including the augment-stats table the API gateway
+#              must not be able to reach (design.md §7 step 1). Note the two
+#              separate users below: that separation is the compliance boundary,
+#              so keep it in local dev too rather than discovering it in prod.
+#
+# Usage: docker compose up -d   (see README.md § Getting started)
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: tftcodex-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tftcodex
+      POSTGRES_PASSWORD: tftcodex
+      POSTGRES_DB: tftcodex
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tftcodex -d tftcodex']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: tftcodex-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    container_name: tftcodex-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: tftcodex
+      CLICKHOUSE_USER: tftcodex
+      CLICKHOUSE_PASSWORD: tftcodex
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - '8123:8123' # HTTP interface
+      - '9000:9000' # native protocol
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      # Creates the read-only `tftcodex_gateway` user that is grant-denied on the
+      # augment-internal-stats table — the structural half of R3.1.
+      - ./infra/clickhouse/init:/docker-entrypoint-initdb.d:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8123/ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+  redis-data:
+  clickhouse-data:
