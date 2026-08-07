@@ -18,6 +18,7 @@ import { notFound } from 'next/navigation';
 import { TierBadge, TrendIndicator } from '@tft-codex/ui';
 
 import { getComp } from '@/lib/api';
+import { AugmentAdvisor } from '../../_components/AugmentAdvisor';
 
 interface CompPageProps {
   params: Promise<{ id: string }>;
@@ -216,6 +217,9 @@ export default async function CompPage({ params }: CompPageProps) {
           doesn&apos;t permit third-party apps to publish augment win rates or placements.
         </p>
       </section>
+
+      {/* Task 2.10 — exercises /v1/recommendations before the overlay exists. */}
+      <AugmentAdvisor boardUnits={comp.units.map((unit) => unit.championId)} compName={comp.name} />
 
       {/* R2.5 — what to run when core units are contested. */}
       {comp.flexSlots.length > 0 && (

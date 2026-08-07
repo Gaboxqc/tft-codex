@@ -10,7 +10,12 @@
  * "we could not reach the meta engine" is a far better outcome than an error
  * boundary.
  */
-import type { Comp, TierList } from '@tft-codex/shared-types';
+import type {
+  BreakpointReference,
+  Comp,
+  RecommendationResponse,
+  TierList,
+} from '@tft-codex/shared-types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
 
@@ -84,4 +89,86 @@ export function getComps(
   }
   const query = params.toString();
   return getJson<{ patch: string; comps: Comp[] }>(`/v1/comps${query ? `?${query}` : ''}`);
+}
+
+/**
+ * The public augment record.
+ *
+ * Note what this type does not have, and cannot be given: a win rate or an
+ * average placement. The API has no field to send one, and adding it here
+ * would be a compile error against nothing — the point is that a component
+ * author reaching for that number finds it absent at every layer (R3.1).
+ */
+export interface PublicAugment {
+  id: string;
+  name: string;
+  tier: 'S' | 'A' | 'B' | 'C';
+  playRate: number;
+  provisional: boolean;
+  roundsOffered: number[];
+  description: string;
+  patch: string;
+  category: string | null;
+  curatedForCompIds: string[];
+  qualitativeNotes: string;
+}
+
+export function getAugments(
+  filters: { patch?: string; kind?: 'augment' | 'legend'; tier?: string } = {},
+): Promise<ApiResult<{ patch: string; kind: string; augments: PublicAugment[] }>> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value);
+  }
+  const query = params.toString();
+  return getJson<{ patch: string; kind: string; augments: PublicAugment[] }>(
+    `/v1/augments/tier-list${query ? `?${query}` : ''}`,
+  );
+}
+
+export function getBreakpoints(patch?: string): Promise<ApiResult<BreakpointReference>> {
+  const query = patch ? `?patch=${encodeURIComponent(patch)}` : '';
+  return getJson<BreakpointReference>(`/v1/reference/breakpoints${query}`, {
+    // Game constants change only on a patch.
+    revalidate: 3600,
+  });
+}
+
+/**
+ * Asks for a recommendation.
+ *
+ * Always sends `tier2-lookup`. The server would downgrade anything else, but
+ * sending Tier-3 from a client that has no business asking for it would show
+ * up in the API's downgrade log as a false alarm — and R3.7 is clearer if the
+ * client's intent matches what it is allowed to have (design.md §8).
+ */
+export async function postRecommendation(body: {
+  boardUnits: string[];
+  augmentOptions?: string[];
+  goldAvailable?: number;
+  level?: number;
+}): Promise<ApiResult<RecommendationResponse>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/v1/recommendations`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ ...body, source: 'web', mode: 'tier2-lookup' }),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        reason: 'unavailable',
+        detail: `The recommendation engine returned ${response.status}.`,
+      };
+    }
+    return { ok: true, data: (await response.json()) as RecommendationResponse };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: 'unavailable',
+      detail: error instanceof Error ? error.message : 'Could not reach the engine.',
+    };
+  }
 }
