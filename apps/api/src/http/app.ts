@@ -6,14 +6,17 @@
  * fake repositories and drive it with `app.inject()`, without a socket or a
  * database in sight.
  */
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import Fastify, { type FastifyInstance } from 'fastify';
 
 import { registerComplianceGuard } from './compliance-plugin.js';
 import type { AppContext } from './context.js';
 import { registerAugmentRoutes } from './routes/augments.js';
+import { registerAuthRoutes } from './routes/auth.js';
 import { registerCompRoutes } from './routes/comps.js';
 import { registerMetaRoutes } from './routes/meta.js';
+import { registerPlayerRoutes } from './routes/players.js';
 import { registerRecommendationRoutes } from './routes/recommendations.js';
 import { registerReferenceRoutes } from './routes/reference.js';
 
@@ -35,9 +38,15 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
 
   await app.register(cors, {
-    origin: true,
+    // Credentials must be allowed for the session cookie to survive the
+    // cross-origin hop from the web app to the API in development, where they
+    // sit on different ports.
+    origin: context.config.isProduction ? context.config.webBaseUrl : true,
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
   });
+
+  await app.register(cookie);
 
   // Registered before any route so no route can be added that bypasses it.
   registerComplianceGuard(app, {
@@ -55,6 +64,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await registerAugmentRoutes(app, context);
   await registerRecommendationRoutes(app, context);
   await registerReferenceRoutes(app, context);
+  await registerAuthRoutes(app, context);
+  await registerPlayerRoutes(app, context);
 
   app.setNotFoundHandler(async (request, reply) =>
     reply.status(404).send({ error: 'not_found', detail: `No route for ${request.url}` }),

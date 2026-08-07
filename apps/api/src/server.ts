@@ -11,11 +11,15 @@ import { createAdminClickHouse, createGatewayClickHouse } from './db/clickhouse.
 import { createPostgresPool } from './db/postgres.js';
 import { createRedis } from './db/redis.js';
 import { buildApp } from './http/app.js';
+import { RiotApiClient, createRateLimiter, rateLimiterConfigFromEnv } from '@tft-codex/riot-client';
+
 import { AugmentInternalRepository } from './repositories/augment-internal-repository.js';
 import { AugmentRepository } from './repositories/augment-repository.js';
+import { AuthRepository } from './repositories/auth-repository.js';
 import { CompRepository } from './repositories/comp-repository.js';
 import { IngestionRepository } from './repositories/ingestion-repository.js';
 import { OlapReadRepository } from './repositories/olap-repository.js';
+import { PlayerRepository } from './repositories/player-repository.js';
 import { ReferenceRepository } from './repositories/reference-repository.js';
 
 async function main(): Promise<void> {
@@ -48,6 +52,17 @@ async function main(): Promise<void> {
       olap: new OlapReadRepository(olapClient),
       augmentStats: new AugmentInternalRepository(augmentStatsClient),
       reference: new ReferenceRepository(db),
+      players: new PlayerRepository(db),
+      auth: new AuthRepository(db),
+      // Shares the Redis token bucket with the crawler, so request-time
+      // lookups draw from the same budget rather than a second one Riot has
+      // no idea about (R12.2).
+      riot: new RiotApiClient({
+        apiKey: config.riot.apiKey,
+        platform: config.riot.platform,
+        ...(config.riot.regional ? { regional: config.riot.regional } : {}),
+        rateLimiter: createRateLimiter(rateLimiterConfigFromEnv(), cache),
+      }),
       log: (message, detail) => console.warn(`[api] ${message}`, detail ?? ''),
     },
   });

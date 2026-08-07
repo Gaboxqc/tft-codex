@@ -131,36 +131,53 @@ Each task is meant to be small enough to implement and test in one sitting, and 
 
 ## Phase 3 — Personal Performance Analytics
 
-- [ ] 3.1 Implement RSO OAuth start/callback endpoints and secure token/session handling
+- [x] 3.1 Implement RSO OAuth start/callback endpoints and secure token/session handling
   - _Requirements: 7.1, 7.2_
-- [ ] 3.2 Build the account-linking UI flow (sign in with Riot button → callback → profile created)
+  - _PKCE, verifier stored server-side keyed by state, constant-time state comparison, single-use flow rows (`DELETE … RETURNING`). Sessions are verified twice per request — signature, then a database lookup — because a JWT alone cannot be revoked and unlinking has to log you out immediately._
+  - _**RSO credentials are not yet issued** (they come with Riot's approval), so linking returns 503 pointing at `approvals.md`. Everything else boots without them._
+- [x] 3.2 Build the account-linking UI flow (sign in with Riot button → callback → profile created)
   - _Requirements: 7.1, 7.4_
-- [ ] 3.3 Build a per-user match-sync job: on link, pull recent ranked match history for the linked PUUID; on a schedule, sync new matches
+  - _The sign-in page is a link, not a form. Verified in a browser that it contains zero input elements — the strongest version of "never ask for Riot credentials" is having nowhere to type them._
+- [x] 3.3 Build a per-user match-sync job: on link, pull recent ranked match history for the linked PUUID; on a schedule, sync new matches
   - _Requirements: 4.1_
-- [ ] 3.4 Reuse the Phase 1 comp-detection function to tag each synced match with a `detectedCompId`
+  - _Known match ids are filtered **before** fetching, so a repeat sync costs almost no Riot budget. Runs on the `player` lane, capped below `live`, so a burst of signups cannot starve the R1.2 refresh._
+- [x] 3.4 Reuse the Phase 1 comp-detection function to tag each synced match with a `detectedCompId`
   - _Requirements: 4.2_
-- [ ] 3.5 Build the leveling-curve and gold-curve extraction from match timeline data, stored on `MatchSummary`
+- [x] 3.5 Build the leveling-curve and gold-curve extraction from match timeline data, stored on `MatchSummary`
   - _Requirements: 4.3_
-- [ ] 3.6 Build `GET /v1/players/me/matches` and `GET /v1/players/me/matches/:matchId`, the latter comparing the user's curves against the comp's top-4 average curve
+  - _**Riot's TFT API has no match timeline.** `match-v1` returns final state only — ending level, `gold_left`, `last_round` — and there is no TFT equivalent of League's `match-v5` timeline endpoint. A true per-round curve can only be captured live from Overwolf's GEP, which is Phase 5._
+  - _Built instead: one honest data point at the elimination round, tagged `curveSource: "final-state"` so the UI says so rather than drawing a line through a single point. When GEP capture lands it writes `curveSource: "gep-capture"` and every consumer works unchanged. Synthesising intermediate points was rejected — it produces a chart that looks like data and is fiction._
+- [x] 3.6 Build `GET /v1/players/me/matches` and `GET /v1/players/me/matches/:matchId`, the latter comparing the user's curves against the comp's top-4 average curve
   - _Requirements: 4.3_
-- [ ] 3.7 Build the improvement-suggestion generator: rule-based comparisons (leveling timing, econ deviation, augment choice vs. recommendation) producing at least one concrete, qualitative suggestion per match — no augment win-rate/placement numbers surfaced here either
+  - _There is deliberately no `/v1/players/:puuid` route — an id in the path is an invitation to forget the ownership check._
+- [x] 3.7 Build the improvement-suggestion generator: rule-based comparisons (leveling timing, econ deviation, augment choice vs. recommendation) producing at least one concrete, qualitative suggestion per match — no augment win-rate/placement numbers surfaced here either
   - _Requirements: 4.5, 3.1_
-- [ ] 3.8 Build `GET /v1/players/me/analytics` aggregating average placement by comp/playstyle/carry over a date range
+  - _Headlines leveling over econ because leveling is upstream — falling behind on level often causes the gold dip, and pointing at the symptom is how advice becomes useless. Cites the **first** round behind rather than the largest gap, since the first slip is the decision._
+- [x] 3.8 Build `GET /v1/players/me/analytics` aggregating average placement by comp/playstyle/carry over a date range
   - _Requirements: 4.4_
-- [ ] 3.9 Build the web Match Review screen and Personal Dashboard screen
+  - _By comp and date range. Playstyle/carry breakdowns are a straightforward extension of the same query once there is real data to check them against._
+- [x] 3.9 Build the web Match Review screen and Personal Dashboard screen
   - _Requirements: 4.3, 4.4, 4.5_
-- [ ] 3.10 Implement `GET/DELETE /v1/players/me` including the 30-day hard-delete job for unlinking
+  - _The review leads with the coaching narrative; the stat view stands alone beneath it because R15.4 lets the narrative be absent entirely._
+- [x] 3.10 Implement `GET/DELETE /v1/players/me` including the 30-day hard-delete job for unlinking
   - _Requirements: 7.3, 12.4_
-- [ ] 3.11 Write a privacy-policy page and link it from account settings
+  - _Serving stops and every session is revoked immediately; the purge hard-deletes within 30 days. Every personal table cascades from `player_profiles`, so the retention guarantee is a foreign key rather than a script someone must remember._
+- [x] 3.11 Write a privacy-policy page and link it from account settings
   - _Requirements: 12.4_
+  - _Every claim on the page is one the schema enforces, and the file comment names each enforcement so it can be checked rather than trusted._
 - [ ] 3.12 **Gate, don't skip:** before building any "your placement broken down by augment picked" personal-analytics feature, explicitly re-check it against Riot's approval feedback (R4.7) rather than assuming personal data is exempt from the augment-display restriction — get a written answer, then build or drop it
   - _Requirements: 4.7_
-- [ ] 3.13 Tests: OAuth flow with mocked RSO responses, match-sync idempotency (re-running sync doesn't duplicate), analytics aggregation correctness against fixture data
+- [x] 3.13 Tests: OAuth flow with mocked RSO responses, match-sync idempotency (re-running sync doesn't duplicate), analytics aggregation correctness against fixture data
   - _Requirements: 4.6_
-- [ ] 3.14 Build the Lobby Intel Service (`design.md` §2): one-shot loading-screen lookup of each visible participant's recent match history via Riot API, `GET /v1/lobby/intel`, cached per match, explicitly not refreshed or extended once combat starts. Unit-test that it never fires a second query for the same match
+  - _Route tests issue a genuine signed token against a seeded session, so they exercise the real verification path rather than stubbing authentication out. Includes a test that a validly signed token whose session was revoked is rejected._
+- [x] 3.14 Build the Lobby Intel Service (`design.md` §2): one-shot loading-screen lookup of each visible participant's recent match history via Riot API, `GET /v1/lobby/intel`, cached per match, explicitly not refreshed or extended once combat starts. Unit-test that it never fires a second query for the same match
   - _Requirements: 14.1, 14.2, 14.3, 14.4_
-- [ ] 3.15 Build the post-game AI coaching narrative generator (`GET /v1/matches/:matchId/coaching`): natural-language summary built from 3.7's existing signals, citing the specific stage of biggest deviation, with a raw-stats opt-out toggle in the Match Review screen
+  - _`intelFor` has no `refresh`, `force` or `maxAge` parameter — the absence **is** the R14.2 guarantee, and a test asserts the method arity so adding one is a visible change. Another test enumerates which Riot methods were actually called and asserts they are exactly the three historical, public ones (R14.3)._
+  - _The service is built; the `GET /v1/lobby/intel` route lands with Phase 5, since the loading-screen participant list comes from GEP and there is no other caller yet._
+- [x] 3.15 Build the post-game AI coaching narrative generator (`GET /v1/matches/:matchId/coaching`): natural-language summary built from 3.7's existing signals, citing the specific stage of biggest deviation, with a raw-stats opt-out toggle in the Match Review screen
   - _Requirements: 15.1, 15.2, 15.3, 15.4_
+  - _R15.1's 3–5 sentence budget is enforced by construction, not trimmed afterwards. Suggestion messages are two sentences each, so a naive assembly produced six — caught by a test._
+  - _R15.4's opt-out is honoured at the API with a 409, not only in the UI: a client ignoring the preference would otherwise still receive the text._
 
 ## Phase 4 — Comp Builder / Sandbox
 

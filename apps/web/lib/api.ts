@@ -20,7 +20,8 @@ import type {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
 
 export type ApiResult<T> =
-  { ok: true; data: T } | { ok: false; reason: 'unavailable' | 'not-found'; detail: string };
+  | { ok: true; data: T }
+  | { ok: false; reason: 'unavailable' | 'not-found' | 'unauthenticated'; detail: string };
 
 interface FetchOptions {
   /**
@@ -29,14 +30,31 @@ interface FetchOptions {
    * banner that should accompany it.
    */
   revalidate?: number;
+  /**
+   * Forwarded session cookie for personal routes. The API's session cookie is
+   * httpOnly, so a server component has to pass it through explicitly — which
+   * also means personal requests are opt-in rather than accidental.
+   */
+  cookie?: string;
 }
 
 async function getJson<T>(path: string, options: FetchOptions = {}): Promise<ApiResult<T>> {
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
-      headers: { accept: 'application/json' },
-      next: { revalidate: options.revalidate ?? 60 },
+      headers: {
+        accept: 'application/json',
+        ...(options.cookie ? { cookie: options.cookie } : {}),
+      },
+      // Personal data must never be cached across users. When a cookie is
+      // forwarded, the response is per-user by definition.
+      ...(options.cookie
+        ? { cache: 'no-store' as const }
+        : { next: { revalidate: options.revalidate ?? 60 } }),
     });
+
+    if (response.status === 401) {
+      return { ok: false, reason: 'unauthenticated', detail: 'Sign in to see this.' };
+    }
 
     if (response.status === 404) {
       return { ok: false, reason: 'not-found', detail: `Nothing at ${path}.` };
@@ -123,6 +141,96 @@ export function getAugments(
   const query = params.toString();
   return getJson<{ patch: string; kind: string; augments: PublicAugment[] }>(
     `/v1/augments/tier-list${query ? `?${query}` : ''}`,
+  );
+}
+
+// ── Personal analytics (R4) ─────────────────────────────────────────────────
+//
+// Every function below forwards the session cookie and is `no-store`. Personal
+// data must never share a cache entry between users, and Next's default
+// caching would happily do exactly that.
+
+export interface PlayerProfileView {
+  puuid: string;
+  region: string;
+  riotId: string;
+  linkedAt: string;
+  lastSyncedAt: string | null;
+  coachingNarrativeOptOut: boolean;
+}
+
+export interface MatchListItem {
+  matchId: string;
+  patch: string;
+  placement: number;
+  detectedCompId: string | null;
+  timestamp: string;
+}
+
+export interface CurveDeviationView {
+  round: string;
+  actual: number;
+  baseline: number;
+  delta: number;
+}
+
+export interface MatchReviewView {
+  match: MatchListItem & {
+    levelCurve: { round: string; value: number }[];
+    goldCurve: { round: string; value: number }[];
+  };
+  baseline: {
+    compId: string | null;
+    compName: string | null;
+    sampleSize: number;
+  };
+  levelDeviations: CurveDeviationView[];
+  goldDeviations: CurveDeviationView[];
+  suggestions: { signal: string; round: string | null; message: string }[];
+  keyDeviationRound: string | null;
+  /** `final-state` means one endpoint, not a per-round trace. */
+  curveSource: 'final-state' | 'gep-capture';
+}
+
+export interface AnalyticsView {
+  totalGames: number;
+  overallAvgPlacement: number | null;
+  byComp: { compId: string | null; compName: string | null; games: number; avgPlacement: number }[];
+}
+
+export function getProfile(cookie: string): Promise<ApiResult<PlayerProfileView>> {
+  return getJson<PlayerProfileView>('/v1/players/me', { cookie });
+}
+
+export function getMyMatches(
+  cookie: string,
+  limit = 20,
+): Promise<ApiResult<{ matches: MatchListItem[] }>> {
+  return getJson<{ matches: MatchListItem[] }>(`/v1/players/me/matches?limit=${limit}`, {
+    cookie,
+  });
+}
+
+export function getMatchReview(
+  cookie: string,
+  matchId: string,
+): Promise<ApiResult<MatchReviewView>> {
+  return getJson<MatchReviewView>(`/v1/players/me/matches/${encodeURIComponent(matchId)}`, {
+    cookie,
+  });
+}
+
+export function getAnalytics(cookie: string): Promise<ApiResult<AnalyticsView>> {
+  return getJson<AnalyticsView>('/v1/players/me/analytics', { cookie });
+}
+
+export function getCoaching(
+  cookie: string,
+  matchId: string,
+): Promise<ApiResult<{ narrative: string; keyDeviationRound: string | null }>> {
+  return getJson<{ narrative: string; keyDeviationRound: string | null }>(
+    `/v1/matches/${encodeURIComponent(matchId)}/coaching`,
+    { cookie },
   );
 }
 

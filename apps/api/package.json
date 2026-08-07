@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@clickhouse/client": "^1.12.1",
+    "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.0.1",
     "@tft-codex/riot-client": "*",
     "@tft-codex/shared-types": "*",
