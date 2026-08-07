@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    // Node 22+ ships global fetch/AbortSignal.timeout; no polyfill needed.
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts", "dist"]
+}

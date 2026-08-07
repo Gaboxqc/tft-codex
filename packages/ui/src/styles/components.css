@@ -1,0 +1,287 @@
+/**
+ * Component styles for @tft-codex/ui (design-system.md §4–§6).
+ *
+ * Plain CSS rather than a framework: these components render inside Next.js on
+ * web AND inside an ow-electron overlay window, and a shared stylesheet is the
+ * only thing that behaves identically in both without extra build wiring
+ * (R10.2). Layout-level styling in each app can still use whatever it likes.
+ */
+
+/* ── Base ──────────────────────────────────────────────────────────────── */
+
+.tftc-root {
+  background: var(--tftc-bg-canvas);
+  color: var(--tftc-text-primary);
+  font-family: var(--tftc-font-body);
+  font-size: var(--tftc-text-body-size);
+  line-height: var(--tftc-text-body-line);
+}
+
+/*
+ * Tabular numerals on every stat surface. Placement and percentage columns
+ * misalign without this, and this is a stats-heavy product where that reads as
+ * sloppiness (design-system.md §3).
+ */
+.tftc-stat,
+.tftc-comp-card__stats,
+.tftc-table {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Available to screen readers, invisible on screen. */
+.tftc-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Visible focus ring on every interactive element (R11.3). */
+.tftc-btn:focus-visible,
+.tftc-link:focus-visible,
+.tftc-tier-badge:focus-visible,
+.tftc-augment-chip:focus-visible {
+  outline: 2px solid var(--tftc-cyan-300);
+  outline-offset: 2px;
+}
+
+/* ── Button ────────────────────────────────────────────────────────────── */
+
+.tftc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tftc-space-2);
+  padding: var(--tftc-space-2) var(--tftc-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--tftc-radius-sm);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--tftc-transition-fast),
+    border-color var(--tftc-transition-fast);
+}
+
+.tftc-btn:disabled {
+  cursor: not-allowed;
+  color: var(--tftc-text-disabled);
+  background: var(--tftc-surface-1);
+  border-color: var(--tftc-surface-2);
+}
+
+/*
+ * Primary button. The --tftc-ink-900 foreground is NOT a style preference:
+ * white on cyan-400 measures 1.81:1 and fails WCAG outright, while ink-900
+ * measures 9.15:1 (design-system.md §2). Do not "fix" this to white.
+ */
+.tftc-btn--primary {
+  background: var(--tftc-cyan-400);
+  color: var(--tftc-ink-900);
+}
+
+.tftc-btn--primary:hover:not(:disabled),
+.tftc-btn--primary:active:not(:disabled) {
+  background: var(--tftc-cyan-500);
+}
+
+.tftc-btn--secondary {
+  background: var(--tftc-surface-1);
+  color: var(--tftc-text-primary);
+  border-color: var(--tftc-surface-2);
+}
+
+.tftc-btn--secondary:hover:not(:disabled) {
+  background: var(--tftc-surface-2);
+}
+
+.tftc-btn--ghost {
+  background: transparent;
+  color: var(--tftc-cyan-300);
+}
+
+.tftc-btn--ghost:hover:not(:disabled) {
+  background: var(--tftc-surface-1);
+}
+
+/* ── Tier badge ────────────────────────────────────────────────────────── */
+
+/*
+ * Letter only. A number rendered next to a tier badge could be mistaken for a
+ * stat, which is exactly what R3.1 forbids on augments — so the component has
+ * no slot for one at all (design-system.md §5).
+ */
+.tftc-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 var(--tftc-space-1);
+  border-radius: var(--tftc-radius-sm);
+  font-family: var(--tftc-font-display);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+  /* Dark text on a filled tier color, same contrast rule as the cyan button. */
+  color: var(--tftc-ink-900);
+}
+
+.tftc-tier-badge--s {
+  background: var(--tftc-tier-s);
+}
+.tftc-tier-badge--a {
+  background: var(--tftc-tier-a);
+}
+.tftc-tier-badge--b {
+  background: var(--tftc-tier-b);
+}
+.tftc-tier-badge--c {
+  background: var(--tftc-tier-c);
+}
+
+/* Dashed outline, no fill — must never read as a confident rank (R1.4). */
+.tftc-tier-badge--provisional {
+  background: transparent;
+  border: 1px dashed var(--tftc-tier-provisional);
+  color: var(--tftc-text-secondary);
+  font-size: 11px;
+  min-width: auto;
+  padding: 0 var(--tftc-space-2);
+  font-family: var(--tftc-font-body);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Trend indicator ───────────────────────────────────────────────────── */
+
+/*
+ * Trend carries a glyph, not just a hue — colorblind users must get the same
+ * information (design-system.md §7).
+ */
+.tftc-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tftc-space-1);
+  font-size: var(--tftc-text-caption-size);
+}
+
+.tftc-trend--rising {
+  color: var(--tftc-success);
+}
+.tftc-trend--falling {
+  color: var(--tftc-danger);
+}
+.tftc-trend--stable {
+  color: var(--tftc-text-secondary);
+}
+
+/* ── Augment chip ──────────────────────────────────────────────────────── */
+
+/*
+ * Left border only, not a full fill: augments are a lighter-weight
+ * recommendation than comp tiers (R3.2), and the visual weight should say so.
+ * Play rate is the ONLY number this component can render — the props type has
+ * no field for anything else (R3.1, R3.3).
+ */
+.tftc-augment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tftc-space-2);
+  padding: var(--tftc-space-2) var(--tftc-space-3);
+  background: var(--tftc-surface-1);
+  border-left: 3px solid var(--tftc-tier-c);
+  border-radius: 0 var(--tftc-radius-sm) var(--tftc-radius-sm) 0;
+  font-size: var(--tftc-text-caption-size);
+}
+
+.tftc-augment-chip--s {
+  border-left-color: var(--tftc-tier-s);
+}
+.tftc-augment-chip--a {
+  border-left-color: var(--tftc-tier-a);
+}
+.tftc-augment-chip--b {
+  border-left-color: var(--tftc-tier-b);
+}
+.tftc-augment-chip--c {
+  border-left-color: var(--tftc-tier-c);
+}
+
+.tftc-augment-chip__play-rate {
+  color: var(--tftc-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Stale-data banner (R1.6) ──────────────────────────────────────────── */
+
+/*
+ * Persistent, not a dismissible toast: it has to stay visible for the whole
+ * session it applies to (design-system.md §5).
+ */
+.tftc-stale-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--tftc-space-3);
+  padding: var(--tftc-space-3) var(--tftc-space-4);
+  background: var(--tftc-surface-2);
+  border-left: 4px solid var(--tftc-danger);
+  border-radius: 0 var(--tftc-radius-sm) var(--tftc-radius-sm) 0;
+  color: var(--tftc-text-primary);
+  font-size: var(--tftc-text-caption-size);
+  line-height: var(--tftc-text-caption-line);
+}
+
+.tftc-stale-banner__icon {
+  color: var(--tftc-danger);
+  flex-shrink: 0;
+}
+
+/* ── Riot legal disclaimer (R12.3) ─────────────────────────────────────── */
+
+.tftc-disclaimer {
+  color: var(--tftc-text-secondary);
+  font-size: var(--tftc-text-caption-size);
+  line-height: var(--tftc-text-caption-line);
+  max-width: 68ch;
+}
+
+.tftc-disclaimer--compact {
+  font-size: var(--tftc-text-overlay-size);
+  line-height: var(--tftc-text-overlay-line);
+}
+
+/* ── Overlay panel (R5.7, R19.2) ───────────────────────────────────────── */
+
+.tftc-overlay-panel {
+  background: var(--tftc-overlay-panel-bg);
+  border: 1px solid var(--tftc-overlay-panel-border);
+  border-radius: var(--tftc-radius-md);
+  backdrop-filter: blur(var(--tftc-overlay-blur));
+  padding: var(--tftc-space-3);
+  /*
+   * Overlay text never drops below the 12px floor even in second-screen mode.
+   * Scale the panel, not the type (design-system.md §7).
+   */
+  font-size: var(--tftc-text-overlay-size);
+  line-height: var(--tftc-text-overlay-line);
+}
+
+/* Streamer/OBS-capture variant: larger scale, higher contrast (R19.2). */
+.tftc-overlay-panel--stream-safe {
+  font-size: var(--tftc-text-body-size);
+  line-height: var(--tftc-text-body-line);
+  background: var(--tftc-bg-base);
+  border-color: var(--tftc-cyan-400);
+  backdrop-filter: none;
+}
+
+/*
+ * Elevation is communicated by surface step and border, not drop shadow —
+ * shadows barely read over a semi-transparent overlay, and web reuses the same
+ * rule so the two clients stay visually consistent (design-system.md §4).
+ */

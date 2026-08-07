@@ -1,0 +1,111 @@
+/**
+ * TFT Codex design tokens — the single token set shared by the Next.js web app
+ * and the ow-electron overlay (R10.2). Generated from design-system.md §8;
+ * change that document first, then this file.
+ *
+ * Every color pair here was contrast-checked against the actual dark
+ * backgrounds in this system rather than eyeballed (design-system.md §2, R11.3).
+ * Ratios are noted inline so the next person adding a color can see the bar.
+ */
+
+:root {
+  /* ── Background layers (four-step elevation) ──────────────────────────── */
+  --tftc-bg-canvas: #080b0f; /* app background, web only */
+  --tftc-bg-base: #0b1016; /* overlay window bg, page fallback */
+  --tftc-surface-1: #121922; /* cards, panels */
+  --tftc-surface-2: #1a2430; /* raised elements, modals, hovered rows */
+
+  /* ── Brand / accent (cyan) ────────────────────────────────────────────── */
+  --tftc-cyan-300: #67e8f9; /* 13.2:1 on bg-base — body-size links */
+  --tftc-cyan-400: #22d3ee; /* 10.6:1 as text — primary buttons, active nav */
+  --tftc-cyan-500: #06b6d4; /* 7.9:1 — pressed/hover of cyan-400 */
+  --tftc-ink-900: #06222a; /* text ON filled cyan surfaces — see note below */
+
+  /*
+   * White on cyan-400 measures 1.81:1, a hard accessibility failure. Filled
+   * cyan buttons and badges must use --tftc-ink-900 (9.15:1). This is baked
+   * into the button component so nobody has to remember it.
+   */
+
+  /* ── Text ─────────────────────────────────────────────────────────────── */
+  --tftc-text-primary: #e6edf3;
+  --tftc-text-secondary: #9aa7b4;
+  --tftc-text-disabled: #5c6772; /* disabled controls only — exempt from AA */
+
+  /* ── Tier semantics ───────────────────────────────────────────────────── */
+  /*
+   * A different hue family from brand cyan on purpose: "this is clickable"
+   * and "this is an S-tier comp" must never compete for the same color.
+   */
+  --tftc-tier-s: #f5a623; /* amber, 9.4:1 */
+  --tftc-tier-a: #a78bfa; /* violet, 7.0:1 */
+  --tftc-tier-b: #2dd4bf; /* teal — intentionally distinct from brand cyan, 10.3:1 */
+  --tftc-tier-c: #94a3b8; /* slate, 7.5:1 */
+  --tftc-tier-provisional: #5c6772; /* dashed outline, no fill — never implies rank */
+
+  /* ── Status ───────────────────────────────────────────────────────────── */
+  --tftc-success: #4ade80; /* rising trend, positive delta, 11:1 */
+  --tftc-danger: #fb7185; /* falling trend, stale-data banner, errors, 7.1:1 */
+  --tftc-warning: #f5a623; /* reuses tier-s: both mean "pay attention" */
+
+  /* ── Overlay-specific ─────────────────────────────────────────────────── */
+  --tftc-overlay-panel-bg: rgb(11 16 22 / 82%);
+  --tftc-overlay-panel-border: rgb(103 232 249 / 25%);
+  --tftc-overlay-blur: 12px;
+
+  /* ── Typography ───────────────────────────────────────────────────────── */
+  /* Display: geometric/technical — H1, H2 and big stat numbers only. */
+  --tftc-font-display: 'Rajdhani', 'Chakra Petch', system-ui, sans-serif;
+  /* Body: Inter, chosen for legibility at small overlay sizes. */
+  --tftc-font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --tftc-text-display-size: 32px;
+  --tftc-text-display-line: 40px;
+  --tftc-text-h2-size: 22px;
+  --tftc-text-h2-line: 28px;
+  --tftc-text-body-size: 15px;
+  --tftc-text-body-line: 22px;
+  --tftc-text-caption-size: 13px;
+  --tftc-text-caption-line: 18px;
+  /* Overlay floor — never scale type below this, scale the panel instead (R5.7). */
+  --tftc-text-overlay-size: 12px;
+  --tftc-text-overlay-line: 16px;
+
+  /* ── Spacing (4px base) ───────────────────────────────────────────────── */
+  --tftc-space-1: 4px;
+  --tftc-space-2: 8px;
+  --tftc-space-3: 12px;
+  --tftc-space-4: 16px;
+  --tftc-space-6: 24px;
+  --tftc-space-8: 32px;
+  --tftc-space-12: 48px;
+
+  /* ── Radius ───────────────────────────────────────────────────────────── */
+  --tftc-radius-sm: 6px; /* chips, badges */
+  --tftc-radius-md: 10px; /* cards; also the max for overlay panels */
+  --tftc-radius-lg: 16px; /* modals */
+
+  /* ── Motion ───────────────────────────────────────────────────────────── */
+  --tftc-transition-fast: 150ms ease-out; /* hover/focus */
+  --tftc-transition-panel: 220ms ease-out; /* panel open/close */
+}
+
+/*
+ * R11.4 — respect the OS reduced-motion preference on both web and the
+ * Overwolf app. Non-essential animation is disabled; short opacity crossfades
+ * survive so state changes stay perceivable.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --tftc-transition-fast: 80ms linear;
+    --tftc-transition-panel: 80ms linear;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

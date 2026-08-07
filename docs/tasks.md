@@ -10,22 +10,30 @@ Each task is meant to be small enough to implement and test in one sitting, and 
 
 ## Phase 0 — Foundations
 
-- [ ] 0.1 Scaffold a monorepo (Turborepo or Nx) with `apps/web`, `apps/api`, `apps/overwolf`, `packages/shared-types`, `packages/ui`
+- [x] 0.1 Scaffold a monorepo (Turborepo or Nx) with `apps/web`, `apps/api`, `apps/overwolf`, `packages/shared-types`, `packages/ui`
   - _Requirements: —_
-- [ ] 0.2 Configure TypeScript strict mode, ESLint, Prettier, and a GitHub Actions workflow that blocks merge on lint/type/test failure
+  - _Done: npm workspaces + Turborepo. `apps/api` and `apps/overwolf` are scaffolded in Phase 1 and Phase 5 respectively, when there is code for them._
+- [x] 0.2 Configure TypeScript strict mode, ESLint, Prettier, and a GitHub Actions workflow that blocks merge on lint/type/test failure
   - _Requirements: —_
-- [ ] 0.3 Add `docker-compose.yml` for local Postgres + Redis; document setup in root `README.md`
+  - _Done: `.github/workflows/ci.yml`. The two Riot compliance suites run as a separate required check so a red PR distinguishes "leaks augment win rates" from "a snapshot drifted"._
+- [x] 0.3 Add `docker-compose.yml` for local Postgres + Redis; document setup in root `README.md`
   - _Requirements: —_
-- [ ] 0.4 Apply for a Riot Developer application key; build a `RiotApiClient` wrapper in `packages/riot-client` with a configurable Redis-backed token-bucket rate limiter
+  - _Done: also ClickHouse, with an init script creating the restricted `tftcodex_gateway` user that has no grant on `augment_internal_stats` (R3.1's structural layer)._
+- [x] 0.4 Apply for a Riot Developer application key; build a `RiotApiClient` wrapper in `packages/riot-client` with a configurable Redis-backed token-bucket rate limiter
   - _Requirements: 12.2_
-- [ ] 0.5 Define shared TypeScript interfaces from `design.md` §4 (`Champion`, `Trait`, `Item`, `Augment`, `Comp`, `PatchVersion`, `LobbyIntelEntry`) in `packages/shared-types`, with unit tests validating example fixtures parse against each type — confirm the `Augment` type has no `winRate`/`avgPlacement` fields as a review checklist item, not just a convention
+  - _Done: client + Redis and in-memory limiters with per-lane isolation (live/backfill/lobby/player) so backfill cannot starve the R1.2 refresh SLA. **The key application itself is still yours to file** — see `approvals.md`._
+- [x] 0.5 Define shared TypeScript interfaces from `design.md` §4 (`Champion`, `Trait`, `Item`, `Augment`, `Comp`, `PatchVersion`, `LobbyIntelEntry`) in `packages/shared-types`, with unit tests validating example fixtures parse against each type — confirm the `Augment` type has no `winRate`/`avgPlacement` fields as a review checklist item, not just a convention
   - _Requirements: 3.1_
-- [ ] 0.6 Write the Riot legal disclaimer component (no Riot logo) and add it to the web app's global footer
+  - _Done: Zod schemas with inferred types. `compliance.ts` owns the single definition of "forbidden field" so the gateway middleware, the component props and the CI suite cannot drift apart._
+- [x] 0.6 Write the Riot legal disclaimer component (no Riot logo) and add it to the web app's global footer
   - _Requirements: 12.3_
+  - _Done: `packages/ui` also carries the design-system.md tokens and the components whose prop types enforce R3.1/R11.3 structurally._
 - [ ] 0.7 **Start now, runs in parallel with everything below:** submit Riot's third-party application approval request via Riot's Developer Portal. **Explicitly describe the Tier-3 adaptive recommendation engine's board-state-reactive behavior (`design.md` §8) in the submission and request written confirmation of its acceptability** — don't submit a generic description and discover the answer at rejection time. Track status; this gates both a production Riot API key and Overwolf publication later, and typically has real review lead time
   - _Requirements: 13.1, 3.7_
+  - _**Blocked on you — this is a submission, not code.** `approvals.md` spells out exactly what the application has to say and which two questions it must ask. Nothing in Phases 1–4 waits on it; all of Phase 5 does._
 - [ ] 0.8 **Start now, runs in parallel:** submit the Overwolf app idea for whitelisting as a **Public** app, including a public-facing feature description, UI/UX plan, and a monetization plan (even if "no ads at launch"). Overwolf will not grant API access before this is approved
   - _Requirements: 13.2_
+  - _**Blocked on you.** Needs one product decision first: Overwolf monetization on or off at launch. See `approvals.md`._
 
 ## Phase 1 — Meta Intelligence MVP
 
