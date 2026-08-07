@@ -1,0 +1,159 @@
+/**
+ * Web-app layout styling. Component-level styling lives in packages/ui so it
+ * stays shared with the Overwolf overlay (R10.2) — only page chrome belongs
+ * here.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--tftc-cyan-300);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+a:focus-visible {
+  outline: 2px solid var(--tftc-cyan-300);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Keyboard users get a way past the nav on every page (R11.3). */
+.tftc-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: var(--tftc-space-2);
+  padding: var(--tftc-space-2) var(--tftc-space-4);
+  background: var(--tftc-cyan-400);
+  color: var(--tftc-ink-900);
+  border-radius: var(--tftc-radius-sm);
+  font-weight: 600;
+  z-index: 100;
+}
+
+.tftc-skip-link:focus {
+  left: var(--tftc-space-4);
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tftc-space-6);
+  flex-wrap: wrap;
+  padding: var(--tftc-space-4) var(--tftc-space-6);
+  border-bottom: 1px solid var(--tftc-surface-2);
+  background: var(--tftc-bg-base);
+}
+
+.site-header__wordmark {
+  font-family: var(--tftc-font-display);
+  font-size: var(--tftc-text-h2-size);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--tftc-text-primary);
+  text-decoration: none;
+}
+
+.site-header__wordmark span {
+  color: var(--tftc-cyan-400);
+}
+
+.site-header__nav {
+  display: flex;
+  gap: var(--tftc-space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Main ──────────────────────────────────────────────────────────────── */
+
+.site-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--tftc-space-8) var(--tftc-space-6);
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────── */
+
+.site-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tftc-space-3);
+  padding: var(--tftc-space-6);
+  border-top: 1px solid var(--tftc-surface-2);
+  background: var(--tftc-bg-base);
+}
+
+.site-footer__links {
+  display: flex;
+  gap: var(--tftc-space-4);
+  font-size: var(--tftc-text-caption-size);
+}
+
+/* ── Page chrome ───────────────────────────────────────────────────────── */
+
+.page-title {
+  font-family: var(--tftc-font-display);
+  font-size: var(--tftc-text-display-size);
+  line-height: var(--tftc-text-display-line);
+  margin: 0 0 var(--tftc-space-2);
+}
+
+.page-lede {
+  color: var(--tftc-text-secondary);
+  max-width: 68ch;
+  margin: 0 0 var(--tftc-space-8);
+}
+
+.placeholder-grid {
+  display: grid;
+  gap: var(--tftc-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.placeholder-card {
+  background: var(--tftc-surface-1);
+  border: 1px solid var(--tftc-surface-2);
+  border-radius: var(--tftc-radius-md);
+  padding: var(--tftc-space-4);
+}
+
+.placeholder-card h2 {
+  font-family: var(--tftc-font-display);
+  font-size: var(--tftc-text-h2-size);
+  line-height: var(--tftc-text-h2-line);
+  margin: 0 0 var(--tftc-space-2);
+}
+
+.placeholder-card p {
+  color: var(--tftc-text-secondary);
+  margin: 0;
+  font-size: var(--tftc-text-caption-size);
+  line-height: var(--tftc-text-caption-line);
+}
