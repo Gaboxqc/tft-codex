@@ -20,13 +20,17 @@
  *
  * _Requirements: 3.1, 3.4_
  */
+import type { RiotApiClient } from '@tft-codex/riot-client';
+
 import type { AppConfig } from '../config.js';
 import type { Cache } from '../db/redis.js';
 import type { AugmentInternalRepository } from '../repositories/augment-internal-repository.js';
 import type { AugmentRepository } from '../repositories/augment-repository.js';
+import type { AuthRepository } from '../repositories/auth-repository.js';
 import type { CompRepository } from '../repositories/comp-repository.js';
 import type { IngestionRepository } from '../repositories/ingestion-repository.js';
 import type { OlapReadRepository } from '../repositories/olap-repository.js';
+import type { PlayerRepository } from '../repositories/player-repository.js';
 import type { ReferenceRepository } from '../repositories/reference-repository.js';
 
 export interface AppContext {
@@ -47,5 +51,13 @@ export interface AppContext {
    */
   augmentStats: AugmentInternalRepository;
   reference: ReferenceRepository;
+  /** Linked profiles and their own matches. Never another player's (R4.6). */
+  players: PlayerRepository;
+  auth: AuthRepository;
+  /**
+   * Only for the request-time lookups that genuinely need Riot: the Riot ID on
+   * link, and lobby intel. The crawler has its own client with its own lanes.
+   */
+  riot?: RiotApiClient | undefined;
   log: (message: string, detail?: unknown) => void;
 }

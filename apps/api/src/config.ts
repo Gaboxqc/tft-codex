@@ -33,8 +33,23 @@ const EnvSchema = z.object({
   CLICKHOUSE_GATEWAY_USER: z.string().default('tftcodex_gateway'),
   CLICKHOUSE_GATEWAY_PASSWORD: z.string().default(''),
 
+  /** Signs session JWTs. Must differ per environment (design.md §10). */
+  JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
+  /** Where to send the browser after an RSO round trip. */
+  WEB_BASE_URL: z.string().default('http://localhost:3000'),
+
+  // RSO credentials, issued once Riot approves the third-party application
+  // (docs/approvals.md). Optional so the rest of the API boots without them —
+  // account linking returns 503 until they exist, rather than blocking Phases
+  // 1 and 2 from running at all.
+  RSO_CLIENT_ID: z.string().optional(),
+  RSO_CLIENT_SECRET: z.string().optional(),
+  RSO_REDIRECT_URI: z.string().optional(),
+
   /** How often the meta pipeline is expected to publish, in minutes (R1.2). */
   META_REFRESH_INTERVAL_MINUTES: z.coerce.number().int().positive().default(30),
+  /** R7.3 — hard-delete window after an unlink. */
+  PROFILE_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
   /** Below this many games on the current patch, a comp is provisional (R1.4). */
   COMP_MIN_SAMPLE_SIZE: z.coerce.number().int().positive().default(200),
 
@@ -83,6 +98,12 @@ export interface AppConfig {
     gateway: { username: string; password: string };
   };
   meta: { refreshIntervalMinutes: number; compMinSampleSize: number };
+  /** Signs session JWTs. */
+  jwtSecret: string;
+  webBaseUrl: string;
+  /** null until Riot issues RSO credentials — linking 503s in the meantime. */
+  rso: { clientId: string; clientSecret: string; redirectUri: string } | null;
+  privacy: { profileRetentionDays: number };
   compliance: {
     tier3RecommendationsConfirmed: boolean;
     tier3ConfirmationRef: string | null;
@@ -125,6 +146,19 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       refreshIntervalMinutes: env.META_REFRESH_INTERVAL_MINUTES,
       compMinSampleSize: env.COMP_MIN_SAMPLE_SIZE,
     },
+    jwtSecret: env.JWT_SECRET,
+    webBaseUrl: env.WEB_BASE_URL.replace(/\/+$/, ''),
+    // All three or none. A half-configured OAuth client fails at the redirect
+    // with an opaque Riot error; failing here says which piece is missing.
+    rso:
+      env.RSO_CLIENT_ID && env.RSO_CLIENT_SECRET && env.RSO_REDIRECT_URI
+        ? {
+            clientId: env.RSO_CLIENT_ID,
+            clientSecret: env.RSO_CLIENT_SECRET,
+            redirectUri: env.RSO_REDIRECT_URI,
+          }
+        : null,
+    privacy: { profileRetentionDays: env.PROFILE_RETENTION_DAYS },
     compliance: {
       tier3RecommendationsConfirmed: env.RIOT_TIER3_RECOMMENDATIONS_CONFIRMED,
       tier3ConfirmationRef: env.RIOT_TIER3_CONFIRMATION_REF ?? null,

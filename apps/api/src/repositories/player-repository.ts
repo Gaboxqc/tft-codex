@@ -286,6 +286,40 @@ export class PlayerRepository {
     return { byComp, totalGames, overallAvgPlacement };
   }
 
+  /**
+   * Top-4 baseline curves for a comp (R4.3).
+   *
+   * Built from linked users' own stored matches, aggregated across everyone
+   * who played the comp. Note the SELECT: it returns curves and nothing else —
+   * no PUUID, no match id, no placement beyond the top-4 filter in the WHERE.
+   * The result is an average with no identity attached to it, which is what
+   * R4.6 requires of anything derived from other players.
+   *
+   * Capped because a baseline stops moving long before every historical match
+   * is included, and an unbounded scan on a popular comp is a slow query on
+   * the request path.
+   */
+  async baselineFor(
+    compId: string,
+    patch: string,
+    limit = 200,
+  ): Promise<{ levelCurves: CurvePoint[][]; goldCurves: CurvePoint[][]; sampleSize: number }> {
+    const { rows } = await this.db.query<{ level_curve: CurvePoint[]; gold_curve: CurvePoint[] }>(
+      `SELECT level_curve, gold_curve
+       FROM player_matches
+       WHERE detected_comp_id = $1 AND patch = $2 AND placement <= 4
+       ORDER BY played_at DESC
+       LIMIT $3`,
+      [compId, patch, limit],
+    );
+
+    return {
+      levelCurves: rows.map((row) => row.level_curve),
+      goldCurves: rows.map((row) => row.gold_curve),
+      sampleSize: rows.length,
+    };
+  }
+
   // ── Coaching (R15) ───────────────────────────────────────────────────────
 
   async saveCoaching(entry: {

@@ -7,9 +7,12 @@
  * themselves would happily pass while the real gateway leaked.
  */
 import { vi } from 'vitest';
-import type { TierList } from '@tft-codex/shared-types';
+import type { MatchSummary, PlayerProfile, TierList } from '@tft-codex/shared-types';
 
+import { issueAccessToken } from '../auth/session.js';
 import type { AppConfig } from '../config.js';
+import type { AuthRepository } from '../repositories/auth-repository.js';
+import type { PlayerRepository } from '../repositories/player-repository.js';
 import { CACHE_KEYS, type Cache } from '../db/redis.js';
 import type { AugmentCounters } from '../domain/augment-tiering.js';
 import type { AugmentInternalRepository } from '../repositories/augment-internal-repository.js';
@@ -34,6 +37,10 @@ export const testConfig = (overrides: Partial<AppConfig> = {}): AppConfig => ({
     gateway: { username: 'gateway', password: '' },
   },
   meta: { refreshIntervalMinutes: 30, compMinSampleSize: 200 },
+  jwtSecret: 'test-secret-value-long-enough',
+  webBaseUrl: 'http://localhost:3000',
+  rso: { clientId: 'test', clientSecret: 'secret', redirectUri: 'http://localhost:4000/cb' },
+  privacy: { profileRetentionDays: 30 },
   compliance: { tier3RecommendationsConfirmed: false, tier3ConfirmationRef: null },
   ...overrides,
 });
@@ -190,6 +197,10 @@ export interface TestContextOptions {
   augmentStats?: AugmentCounters[];
   currentPatch?: string | null;
   lastPublishedAt?: Date | null;
+  /** Seeds a live session so route tests can authenticate for real. */
+  session?: { puuid: string; sessionId: string };
+  profile?: PlayerProfile | null;
+  matches?: MatchSummary[];
 }
 
 export function buildTestContext(options: TestContextOptions = {}): {
@@ -325,6 +336,69 @@ export function buildTestContext(options: TestContextOptions = {}): {
     })),
   } as unknown as ReferenceRepository;
 
+  const storedMatches = options.matches ?? [];
+  const sessions = new Map<string, { id: string; puuid: string }>(
+    options.session
+      ? [
+          [
+            options.session.sessionId,
+            { id: options.session.sessionId, puuid: options.session.puuid },
+          ],
+        ]
+      : [],
+  );
+
+  const players = {
+    findProfile: vi.fn(async (puuid: string) => options.profile ?? defaultProfile(puuid)),
+    upsertProfile: vi.fn(async () => defaultProfile('puuid-1')),
+    setCoachingOptOut: vi.fn(async () => undefined),
+    requestDeletion: vi.fn(async () => undefined),
+    purgeExpired: vi.fn(async () => []),
+    listMatches: vi.fn(async () => storedMatches),
+    findMatch: vi.fn(
+      async (_puuid: string, matchId: string) =>
+        storedMatches.find((match) => match.matchId === matchId) ?? null,
+    ),
+    knownMatchIds: vi.fn(async () => new Set<string>()),
+    upsertMatches: vi.fn(async () => 0),
+    markSynced: vi.fn(async () => undefined),
+    baselineFor: vi.fn(async () => ({
+      levelCurves: [
+        [
+          { round: '3-2', value: 6 },
+          { round: '5-6', value: 9 },
+        ],
+      ],
+      goldCurves: [
+        [
+          { round: '3-2', value: 32 },
+          { round: '5-6', value: 30 },
+        ],
+      ],
+      sampleSize: 1,
+    })),
+    saveCoaching: vi.fn(async () => undefined),
+    findCoaching: vi.fn(async () => null),
+    analytics: vi.fn(async () => ({
+      byComp: [{ compId: 'vanguard-zoe', games: 12, avgPlacement: 3.8 }],
+      totalGames: 12,
+      overallAvgPlacement: 3.8,
+    })),
+  } as unknown as PlayerRepository;
+
+  const auth = {
+    saveFlow: vi.fn(async () => undefined),
+    consumeFlow: vi.fn(async () => null),
+    purgeExpiredFlows: vi.fn(async () => 0),
+    createSession: vi.fn(async () => undefined),
+    findSession: vi.fn(async (id: string) => sessions.get(id) ?? null),
+    touchSession: vi.fn(async () => undefined),
+    deleteSession: vi.fn(async (id: string) => {
+      sessions.delete(id);
+    }),
+    deleteSessionsFor: vi.fn(async () => 0),
+  } as unknown as AuthRepository;
+
   return {
     store,
     context: {
@@ -336,7 +410,35 @@ export function buildTestContext(options: TestContextOptions = {}): {
       olap,
       augmentStats,
       reference,
+      players,
+      auth,
       log: () => undefined,
     },
+  };
+}
+
+const defaultProfile = (puuid: string): PlayerProfile => ({
+  puuid,
+  region: 'euw1',
+  riotId: 'Codex#EUW',
+  linkedAt: '2026-08-01T00:00:00.000Z',
+  lastSyncedAt: null,
+  notificationPrefs: [],
+  coachingNarrativeOptOut: false,
+});
+
+/**
+ * Issues a real token for a seeded session, so route tests exercise the actual
+ * verification path rather than stubbing authentication out.
+ */
+export function authHeaderFor(
+  context: AppContext,
+  session: { puuid: string; sessionId: string },
+): Record<string, string> {
+  return {
+    authorization: `Bearer ${issueAccessToken(
+      { puuid: session.puuid, sessionId: session.sessionId },
+      context.config.jwtSecret,
+    )}`,
   };
 }
