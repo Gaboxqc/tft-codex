@@ -31,12 +31,42 @@ afterEach(async () => {
  * Routes carrying augment-derived data. Everything they return must be clean,
  * with no exceptions — a blanket assertion is correct here.
  *
- * Currently only the synthetic leaky routes below exercise this; the real
- * `/v1/augments/*` and `/v1/recommendations` land in Phase 2. The list is
- * declared now so adding those routes without adding them here is a visible
- * omission rather than a silent gap.
+ * Adding a route under `/v1/augments/*` or `/v1/recommendations` without adding
+ * it to this list is the gap that lets a leak ship. There is a test below that
+ * cross-checks this list against the app's actual route table, so the omission
+ * fails CI rather than going unnoticed.
  */
-const GUARDED_ROUTES: string[] = [];
+const GUARDED_ROUTES: string[] = [
+  '/v1/augments/tier-list',
+  '/v1/augments/tier-list?tier=S',
+  '/v1/augments/tier-list?kind=legend',
+  '/v1/augments/TFT17_Augment_SorcererHeart',
+];
+
+/** POST routes need a body, so they're exercised separately. */
+const GUARDED_POSTS = [
+  {
+    url: '/v1/recommendations',
+    payload: {
+      source: 'web',
+      boardUnits: ['TFT17_Zoe', 'TFT17_Leona'],
+      augmentOptions: [
+        'TFT17_Augment_SorcererHeart',
+        'TFT17_Augment_PandorasItems',
+        'TFT17_Augment_BigFriend',
+      ],
+    },
+  },
+  {
+    url: '/v1/recommendations',
+    payload: {
+      source: 'overwolf-overlay',
+      mode: 'tier3-adaptive',
+      boardUnits: ['TFT17_Zoe'],
+      augmentOptions: ['TFT17_Augment_SorcererHeart'],
+    },
+  },
+];
 
 /**
  * Public routes that legitimately carry COMP statistics.
@@ -57,13 +87,100 @@ const COMP_STAT_ROUTES = [
 ];
 
 describe('R3.1 — no forbidden augment stat reaches any client', () => {
-  it('holds absolutely on augment-bearing routes', async () => {
+  it('holds absolutely on augment-bearing GET routes', async () => {
     const { context } = buildTestContext();
     app = await buildApp({ context });
 
     for (const url of GUARDED_ROUTES) {
       const result = await app.inject({ url });
       assertNoForbiddenStatFields(result.json(), `GET ${url}`);
+    }
+  });
+
+  it('holds absolutely on the recommendation route, in both modes', async () => {
+    // Run once with Tier-3 gated and once with it confirmed. The numbers
+    // restriction (R3.1) and the timing restriction (R3.7) are independent —
+    // enabling Tier-3 must not loosen the first one.
+    for (const tier3Confirmed of [false, true]) {
+      const { context } = buildTestContext({
+        config: {
+          compliance: {
+            tier3RecommendationsConfirmed: tier3Confirmed,
+            tier3ConfirmationRef: tier3Confirmed ? 'fixture' : null,
+          },
+        },
+      });
+      const instance = await buildApp({ context });
+
+      try {
+        for (const { url, payload } of GUARDED_POSTS) {
+          const result = await instance.inject({ method: 'POST', url, payload });
+          assertNoForbiddenStatFields(
+            result.json(),
+            `POST ${url} (tier3Confirmed=${tier3Confirmed})`,
+          );
+        }
+      } finally {
+        await instance.close();
+      }
+    }
+  });
+
+  it('emits no numeric justification in any augment reason', async () => {
+    // R3.4: the reason must be qualitative. A number here would be a win rate
+    // in prose, which the field-name scan above would not catch.
+    const { context } = buildTestContext();
+    app = await buildApp({ context });
+
+    const result = await app.inject({
+      method: 'POST',
+      url: '/v1/recommendations',
+      payload: GUARDED_POSTS[0]!.payload,
+    });
+
+    const body = result.json() as { augmentAdvice: { reason: string }[] };
+    expect(body.augmentAdvice.length).toBeGreaterThan(0);
+    for (const advice of body.augmentAdvice) {
+      expect(advice.reason, `reason "${advice.reason}" contains a digit`).not.toMatch(/\d/);
+    }
+  });
+
+  it('covers every registered route under a guarded prefix', async () => {
+    // The list above is only as good as its completeness. This walks Fastify's
+    // actual route table and fails if a guarded-prefix route was added without
+    // a corresponding entry — which is exactly how a leak would ship.
+    const { context } = buildTestContext();
+    app = await buildApp({ context });
+
+    const registered = app
+      .printRoutes({ commonPrefix: false })
+      .split('\n')
+      .map((line) => line.replace(/^[\s│├└─]+/, '').trim())
+      .filter((line) => line.startsWith('/v1/'))
+      .map((line) => line.replace(/\s*\(.*$/, ''))
+      .filter((route) => isGuardedRoute(route));
+
+    // Guards against the parsing above silently matching nothing. A coverage
+    // check that finds no routes passes forever while covering nothing, which
+    // is worse than having no check at all.
+    expect(
+      registered.length,
+      'Route-table parsing found no guarded routes — the check is passing vacuously. ' +
+        "Fix the parser before trusting this suite's green.",
+    ).toBeGreaterThanOrEqual(3);
+
+    const covered = new Set(
+      [...GUARDED_ROUTES.map((url) => url.split('?')[0]!), ...GUARDED_POSTS.map((p) => p.url)].map(
+        (url) => url.replace(/\/TFT17_Augment_\w+$/, '/:id'),
+      ),
+    );
+
+    for (const route of registered) {
+      expect(
+        covered.has(route),
+        `Route ${route} is under a guarded prefix but has no case in this suite. ` +
+          'Add one — an uncovered augment route is how an R3.1 leak reaches production.',
+      ).toBe(true);
     }
   });
 

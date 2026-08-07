@@ -11,9 +11,8 @@ import Link from 'next/link';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Tier list' },
-  { href: '/comps', label: 'Comps' },
   { href: '/augments', label: 'Augments' },
-  { href: '/builder', label: 'Builder' },
+  { href: '/reference', label: 'Breakpoints' },
 ] as const;
 
 export function SiteHeader() {

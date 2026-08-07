@@ -11,9 +11,13 @@ import type { TierList } from '@tft-codex/shared-types';
 
 import type { AppConfig } from '../config.js';
 import { CACHE_KEYS, type Cache } from '../db/redis.js';
+import type { AugmentCounters } from '../domain/augment-tiering.js';
+import type { AugmentInternalRepository } from '../repositories/augment-internal-repository.js';
+import type { AugmentRepository, PublicAugmentRecord } from '../repositories/augment-repository.js';
 import type { CompMetadata, CompRepository } from '../repositories/comp-repository.js';
 import type { IngestionRepository } from '../repositories/ingestion-repository.js';
 import type { OlapReadRepository } from '../repositories/olap-repository.js';
+import type { ReferenceRepository } from '../repositories/reference-repository.js';
 import type { AppContext } from './context.js';
 
 export const testConfig = (overrides: Partial<AppConfig> = {}): AppConfig => ({
@@ -140,10 +144,50 @@ export const tierListSnapshot = (overrides: Partial<TierList> = {}): TierList =>
   ...overrides,
 });
 
+export const augmentRecord = (
+  overrides: Partial<PublicAugmentRecord> = {},
+): PublicAugmentRecord => ({
+  id: 'TFT17_Augment_SorcererHeart',
+  patch: '17.9',
+  name: 'Sorcerer Heart',
+  kind: 'augment',
+  tier: 'S',
+  playRate: 0.094,
+  provisional: false,
+  roundsOffered: [2, 3],
+  description: 'Gain a Sorcerer emblem and a Rabadon’s Deathcap.',
+  category: 'trait',
+  relatedTraits: ['Sorcerer'],
+  relatedCarries: [],
+  requiresTraits: ['Sorcerer'],
+  curatedForCompIds: ['vanguard-zoe'],
+  qualitativeNotes: 'Wants a Sorcerer core already on board.',
+  ...overrides,
+});
+
+/**
+ * Counters for the restricted table.
+ *
+ * Present in the test harness only because the recommendation engine needs
+ * something to *order* by. No test asserts these values reach a response —
+ * several assert the opposite.
+ */
+export const augmentCounters = (overrides: Partial<AugmentCounters> = {}): AugmentCounters => ({
+  augmentId: 'TFT17_Augment_SorcererHeart',
+  compId: null,
+  games: 5000,
+  top4Count: 3100,
+  winCount: 900,
+  placementSum: 19_500,
+  ...overrides,
+});
+
 export interface TestContextOptions {
   config?: Partial<AppConfig>;
   snapshot?: TierList | null;
   comps?: CompMetadata[];
+  augments?: PublicAugmentRecord[];
+  augmentStats?: AugmentCounters[];
   currentPatch?: string | null;
   lastPublishedAt?: Date | null;
 }
@@ -209,8 +253,77 @@ export function buildTestContext(options: TestContextOptions = {}): {
 
   const olap = {
     compCounters: vi.fn(async () => []),
+    augmentPlayRates: vi.fn(async () => []),
     patchesWithStats: vi.fn(async () => (patch ? [patch] : [])),
   } as unknown as OlapReadRepository;
+
+  const augmentRecords = options.augments ?? [
+    augmentRecord(),
+    augmentRecord({
+      id: 'TFT17_Augment_PandorasItems',
+      name: "Pandora's Items",
+      tier: 'A',
+      playRate: 0.061,
+      category: 'item',
+      relatedTraits: [],
+      requiresTraits: [],
+      curatedForCompIds: [],
+    }),
+    augmentRecord({
+      id: 'TFT17_Augment_BigFriend',
+      name: 'Big Friend',
+      tier: 'C',
+      playRate: 0.022,
+      provisional: true,
+      category: 'combat',
+      relatedTraits: [],
+      relatedCarries: ['TFT17_Sett'],
+      requiresTraits: [],
+      curatedForCompIds: [],
+    }),
+  ];
+
+  const augments = {
+    list: vi.fn(async (_patch: string, kind: string = 'augment') =>
+      augmentRecords.filter((record) => record.kind === kind),
+    ),
+    findById: vi.fn(
+      async (id: string) => augmentRecords.find((record) => record.id === id) ?? null,
+    ),
+    descriptorsFor: vi.fn(async (_patch: string, ids: readonly string[]) =>
+      augmentRecords.filter((record) => ids.includes(record.id)),
+    ),
+    upsertTiers: vi.fn(async () => 0),
+  } as unknown as AugmentRepository;
+
+  const stats =
+    options.augmentStats ??
+    augmentRecords.map((record, index) =>
+      augmentCounters({
+        augmentId: record.id,
+        // Descending quality so ranking assertions have a stable expectation.
+        top4Count: 3100 - index * 500,
+        placementSum: 19_500 + index * 2500,
+      }),
+    );
+
+  const augmentStats = {
+    countersForPatch: vi.fn(async () => stats),
+    countersForAugments: vi.fn(async (_patch: string, ids: readonly string[]) =>
+      stats.filter((entry) => ids.includes(entry.augmentId)),
+    ),
+  } as unknown as AugmentInternalRepository;
+
+  const reference = {
+    breakpoints: vi.fn(async (forPatch: string) => ({
+      patch: forPatch,
+      rows: [
+        { level: 7, xpToReach: 48, goldToBuyXp: 28, note: '' },
+        { level: 8, xpToReach: 84, goldToBuyXp: 56, note: 'Reachable at 4-1 on a clean streak.' },
+      ],
+      interestThresholds: [10, 20, 30, 40, 50],
+    })),
+  } as unknown as ReferenceRepository;
 
   return {
     store,
@@ -218,8 +331,11 @@ export function buildTestContext(options: TestContextOptions = {}): {
       config: testConfig(options.config),
       cache,
       comps,
+      augments,
       ingestion,
       olap,
+      augmentStats,
+      reference,
       log: () => undefined,
     },
   };

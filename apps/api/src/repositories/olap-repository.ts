@@ -47,12 +47,66 @@ export interface TraitStatDelta {
   placement_sum: number;
 }
 
+/**
+ * Augment PLAY RATE delta. Pick frequency only — permitted by R3.3, and kept
+ * in its own table so the gateway can be granted this and not the one below.
+ */
+export interface AugmentPlayRateDelta {
+  patch: string;
+  augment_id: string;
+  times_picked: number;
+  games: number;
+}
+
+/**
+ * RESTRICTED. Real win rates and average placements.
+ *
+ * Written by the aggregation job with admin credentials; readable only by
+ * services that never serialize a response. The gateway user has no grant on
+ * the backing table (R3.1, design.md §7 step 1).
+ */
+export interface AugmentInternalStatDelta {
+  patch: string;
+  augment_id: string;
+  /** Empty string = global rather than scoped to a comp. */
+  comp_id: string;
+  games: number;
+  top4_count: number;
+  win_count: number;
+  placement_sum: number;
+}
+
 export class OlapWriteRepository {
   constructor(private readonly client: OlapClient) {}
 
   async insertCompStats(rows: readonly CompStatDelta[]): Promise<void> {
     if (rows.length === 0) return;
     await this.client.insert({ table: 'comp_stats', values: rows, format: 'JSONEachRow' });
+  }
+
+  async insertAugmentPlayRates(rows: readonly AugmentPlayRateDelta[]): Promise<void> {
+    if (rows.length === 0) return;
+    await this.client.insert({
+      table: 'augment_play_rates',
+      values: rows,
+      format: 'JSONEachRow',
+    });
+  }
+
+  /**
+   * Writes the restricted augment stats.
+   *
+   * Requires the admin client. If this ever throws a permissions error, the
+   * caller is holding gateway credentials and the call site is wrong — that is
+   * the boundary working, not a bug to route around.
+   */
+  async insertAugmentInternalStats(rows: readonly AugmentInternalStatDelta[]): Promise<void> {
+    if (rows.length === 0) return;
+    await this.client.insert({
+      table: 'augment_internal_stats',
+      values: rows,
+      format: 'JSONEachRow',
+    });
   }
 
   async insertUnitStats(rows: readonly UnitStatDelta[]): Promise<void> {
@@ -109,6 +163,29 @@ export class OlapReadRepository {
       winCount: Number(row.winCount),
       placementSum: Number(row.placementSum),
     }));
+  }
+
+  /**
+   * Augment play rates for a patch — pick frequency only.
+   *
+   * This is everything about augments the read repository can access. There is
+   * deliberately no `augmentInternalStats` method here: the gateway credentials
+   * this class is constructed with cannot query that table, so such a method
+   * could only ever fail at runtime. The absence is the point (R3.1).
+   */
+  async augmentPlayRates(patch: string): Promise<{ augmentId: string; timesPicked: number }[]> {
+    const result = await this.client.query({
+      query: `
+        SELECT augment_id AS augmentId, sum(times_picked) AS timesPicked
+        FROM augment_play_rates
+        WHERE patch = {patch:String}
+        GROUP BY augment_id
+      `,
+      query_params: { patch },
+      format: 'JSONEachRow',
+    });
+    const rows = await result.json<{ augmentId: string; timesPicked: string }>();
+    return rows.map((row) => ({ augmentId: row.augmentId, timesPicked: Number(row.timesPicked) }));
   }
 
   /** Patches that have any computed stats, newest-looking first. */

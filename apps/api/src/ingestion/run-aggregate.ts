@@ -12,6 +12,9 @@ import { loadConfig } from '../config.js';
 import { createAdminClickHouse, createGatewayClickHouse } from '../db/clickhouse.js';
 import { createPostgresPool } from '../db/postgres.js';
 import { createRedis } from '../db/redis.js';
+import { tierAugments } from '../domain/augment-tiering.js';
+import { AugmentInternalRepository } from '../repositories/augment-internal-repository.js';
+import { AugmentRepository } from '../repositories/augment-repository.js';
 import { CompRepository } from '../repositories/comp-repository.js';
 import { IngestionRepository } from '../repositories/ingestion-repository.js';
 import { OlapReadRepository, OlapWriteRepository } from '../repositories/olap-repository.js';
@@ -56,6 +59,29 @@ async function main(): Promise<void> {
     if (!patch) {
       log('no current patch marked — skipping publish');
       return;
+    }
+
+    // Task 2.3 — turn the restricted stats into a public letter grade.
+    //
+    // This is the only place the two worlds touch, and it is deliberately
+    // one-directional: `tierAugments` takes counters and returns letters. The
+    // scores it computed to get there are discarded inside that function, so
+    // there is nothing here that could be persisted by mistake.
+    const augmentStats = new AugmentInternalRepository(adminOlap);
+    const augmentCounters = await augmentStats.countersForPatch(patch);
+
+    if (augmentCounters.length > 0) {
+      const totalPicks = augmentCounters
+        .filter((entry) => !entry.compId)
+        .reduce((sum, entry) => sum + entry.games, 0);
+
+      const tiers = tierAugments(augmentCounters, {
+        minSampleSize: config.meta.compMinSampleSize,
+        totalPicks,
+      });
+
+      const updated = await new AugmentRepository(db).upsertTiers(patch, tiers);
+      log(`augment tiers: ${updated} of ${tiers.length} written for patch ${patch}`);
     }
 
     const publisher = new TierListPublisher({
