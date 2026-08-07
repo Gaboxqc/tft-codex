@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+.next
+.turbo
+coverage
+package-lock.json
+
+# The spec documents are authored prose, not code. Prettier reflows markdown
+# tables, which produces enormous diffs on documents that change rarely and are
+# read constantly. Leave them exactly as written.
+docs/
+

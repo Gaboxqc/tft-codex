@@ -1,0 +1,39 @@
+# dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# build output
+dist/
+build/
+out/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# test output
+coverage/
+.vitest/
+
+# env & secrets — Riot API keys never enter the repo (design.md §10)
+.env
+.env.*
+!.env.example
+
+# overwolf packaging output
+*.opk
+apps/overwolf/release/
+
+# editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# os
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*

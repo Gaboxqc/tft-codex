@@ -1,0 +1,8 @@
+# Normalize line endings so Windows and CI agree. The repo is LF-only.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.opk binary
+package-lock.json linguist-generated=true -diff
