@@ -1,0 +1,7 @@
+{
+  "id": "TFT17_Zoe",
+  "name": "Zoe",
+  "cost": 4,
+  "traits": ["TFT17_Sorcerer", "TFT17_Prodigy"],
+  "patch": "17.9"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "TFT17_Augment_PandorasItems",
+  "name": "Pandora's Items",
+  "tier": "A",
+  "playRate": 0.094,
+  "roundsOffered": [2, 3],
+  "description": "At the start of each planning phase, items on your bench are rerolled into other items.",
+  "patch": "17.9"
+}

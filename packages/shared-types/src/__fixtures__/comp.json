@@ -1,0 +1,54 @@
+{
+  "id": "vanguard-zoe",
+  "name": "Vanguard Zoe",
+  "altName": "Zoe Flex",
+  "patch": "17.9",
+  "tier": "S",
+  "trend": "rising",
+  "playstyle": "Fast 8",
+  "difficulty": "Medium",
+  "coreTraits": ["TFT17_Vanguard", "TFT17_Sorcerer"],
+  "carries": ["TFT17_Zoe"],
+  "units": [
+    {
+      "championId": "TFT17_Zoe",
+      "role": "carry",
+      "starTarget": 2,
+      "items": ["TFT_Item_RabadonsDeathcap", "TFT_Item_JeweledGauntlet", "TFT_Item_Morellonomicon"]
+    },
+    {
+      "championId": "TFT17_Leona",
+      "role": "tank",
+      "starTarget": 2,
+      "items": ["TFT_Item_WarmogsArmor", "TFT_Item_Redemption"]
+    },
+    { "championId": "TFT17_Lulu", "role": "support", "starTarget": 2, "items": [] }
+  ],
+  "formation": {
+    "front": ["TFT17_Leona"],
+    "back": ["TFT17_Zoe", "TFT17_Lulu"]
+  },
+  "augmentPriority": ["Items", "Combat", "Econ"],
+  "curatedAugments": ["TFT17_Augment_SorcererHeart", "TFT17_Augment_PandorasItems"],
+  "explanation": "Vanguard's front line buys enough time for Zoe to scale into her three-item spike, which is why the comp overperforms into board-heavy lobbies rather than burst comps.",
+  "stageGuides": {
+    "stage2": "Play the strongest board you can and slam components on any front-line unit.",
+    "stage3": "Hit level 6 at 3-2 and stabilise with a Vanguard pair before spending gold.",
+    "stage4": "Level to 8 at 4-1 and roll to 30 gold for Zoe 2."
+  },
+  "flexSlots": [
+    {
+      "replacesChampionId": "TFT17_Lulu",
+      "alternatives": ["TFT17_Janna", "TFT17_Karma"],
+      "note": "Any Sorcerer that keeps the breakpoint works when Lulu is contested."
+    }
+  ],
+  "computedStats": {
+    "avgPlacement": 4.12,
+    "top4Rate": 0.548,
+    "winRate": 0.152,
+    "playRate": 0.081,
+    "sampleSize": 24310,
+    "computedAt": "2026-08-07T09:30:00.000Z"
+  }
+}
