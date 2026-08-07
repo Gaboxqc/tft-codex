@@ -1,0 +1,35 @@
+{
+  "name": "@tft-codex/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:compliance": "vitest run src/compliance",
+    "migrate": "tsx src/db/migrate.ts",
+    "crawl": "tsx src/ingestion/run-crawl.ts",
+    "aggregate": "tsx src/ingestion/run-aggregate.ts"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.12.1",
+    "@fastify/cors": "^11.0.1",
+    "@tft-codex/riot-client": "*",
+    "@tft-codex/shared-types": "*",
+    "fastify": "^5.4.0",
+    "ioredis": "^5.9.1",
+    "pg": "^8.16.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "@types/pg": "^8.15.4",
+    "tsx": "^4.20.3",
+    "typescript": "~5.9",
+    "vitest": "^3.2.4"
+  }
+}

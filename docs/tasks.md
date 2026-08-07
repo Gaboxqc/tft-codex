@@ -37,37 +37,51 @@ Each task is meant to be small enough to implement and test in one sitting, and 
 
 ## Phase 1 — Meta Intelligence MVP
 
-- [ ] 1.1 Build a seed-player crawler: pull Challenger/Grandmaster/Master league entries via `league-v1`, store seed PUUIDs
+- [x] 1.1 Build a seed-player crawler: pull Challenger/Grandmaster/Master league entries via `league-v1`, store seed PUUIDs
   - _Requirements: 1.1, 12.2_
-- [ ] 1.2 Build a match-ID crawler that walks `match-v1` for each seed PUUID and queues new (deduplicated) match IDs
+  - _Done: `Crawler.seedPlayers`. One failing tier doesn't abort the seed — a region can genuinely have no Challenger entries early in a set._
+- [x] 1.2 Build a match-ID crawler that walks `match-v1` for each seed PUUID and queues new (deduplicated) match IDs
   - _Requirements: 1.1, 12.2_
-- [ ] 1.3 Build a match-detail fetch worker that pulls full match JSON and upserts it into a `raw_matches` Postgres table keyed by `matchId`
+  - _Done: dedup is `ON CONFLICT DO NOTHING` on `discovered_matches`. Apex players share lobbies, so the same id arrives from up to 8 seeds — this is the biggest single saving on rate-limit budget._
+- [x] 1.3 Build a match-detail fetch worker that pulls full match JSON and upserts it into a `raw_matches` Postgres table keyed by `matchId`
   - _Requirements: 1.1_
-- [ ] 1.4 Write the comp-signature registry schema (core traits + carry → named comp) and seed it manually for the current patch
+  - _Done: non-ranked queues and unparseable `game_version`s are skipped permanently rather than re-fetched every cycle._
+- [x] 1.4 Write the comp-signature registry schema (core traits + carry → named comp) and seed it manually for the current patch
   - _Requirements: 1.3_
-- [ ] 1.5 Build the comp-detection function: given a participant's final board, return the best-matching registered comp ID or `null`
+  - _Schema done (`comp_signatures`). **The manual seed is still outstanding** — it needs a live Riot key and knowledge of the current Set's traits/carries, so it's a data task for whoever holds the key, not something to invent._
+- [x] 1.5 Build the comp-detection function: given a participant's final board, return the best-matching registered comp ID or `null`
   - _Requirements: 4.2 (reused later), 1.3_
   - _Test: fixture boards with known expected comp assignments_
-- [ ] 1.6 Build the aggregation job: compute per-comp `avgPlacement`, `top4Rate`, `winRate`, `playRate`, `sampleSize` into ClickHouse (or Timescale) from matches ingested since the last run
+  - _Done: carries weighted equal to traits so "Vanguard Zoe" and "Vanguard Jinx" don't collapse into each other; ties break toward the more specific signature._
+- [x] 1.6 Build the aggregation job: compute per-comp `avgPlacement`, `top4Rate`, `winRate`, `playRate`, `sampleSize` into ClickHouse (or Timescale) from matches ingested since the last run
   - _Requirements: 1.1, 1.2_
-- [ ] 1.7 Implement the tier-scoring formula from `design.md` §3 as a pure, unit-tested function; wire it to run after each aggregation pass and publish a versioned tier-list snapshot to Redis
+  - _Done: writes deltas into SummingMergeTree tables. ClickHouse lands before Postgres marks matches consumed — a crash between the two re-counts a batch rather than silently dropping it. Also rolls up unit and trait stats._
+- [x] 1.7 Implement the tier-scoring formula from `design.md` §3 as a pure, unit-tested function; wire it to run after each aggregation pass and publish a versioned tier-list snapshot to Redis
   - _Requirements: 1.3, 1.4_
-- [ ] 1.8 Schedule the crawler + aggregation + scoring pipeline to run on a 30-minute cycle; add a healthcheck metric for "minutes since last successful publish"
+  - _Done: two-phase publish (write snapshot, then flip pointer) so a mid-write crash leaves the previous list live. Provisional comps sort last regardless of score._
+- [x] 1.8 Schedule the crawler + aggregation + scoring pipeline to run on a 30-minute cycle; add a healthcheck metric for "minutes since last successful publish"
   - _Requirements: 1.2, 1.6, 11.5_
-- [ ] 1.9 Build `GET /v1/meta/tier-list` with `patch`, `tier`, `playstyle`, `difficulty` query params, cached at the gateway with TTL matching the refresh cycle
+  - _Healthcheck done (`GET /v1/meta/health`), jobs are one-shot entry points (`npm run crawl` / `npm run aggregate`). **The 30-minute schedule itself is deployment config** — cron/ECS already handles retries, overlap and alerting better than an in-process timer would._
+- [x] 1.9 Build `GET /v1/meta/tier-list` with `patch`, `tier`, `playstyle`, `difficulty` query params, cached at the gateway with TTL matching the refresh cycle
   - _Requirements: 1.7, 11.1_
-- [ ] 1.10 Build `GET /v1/comps` (search/filter) and `GET /v1/comps/:id` (full detail) endpoints backed by Postgres (comp metadata) joined with the latest ClickHouse stats row
+  - _Done: serves the published snapshot; staleness is computed at read time, not stored._
+- [x] 1.10 Build `GET /v1/comps` (search/filter) and `GET /v1/comps/:id` (full detail) endpoints backed by Postgres (comp metadata) joined with the latest ClickHouse stats row
   - _Requirements: 2.1, 2.6_
-- [ ] 1.11 Build the web Tier List page: filter controls, comp cards, patch/refresh timestamp display, stale-data banner
+  - _Done: joined against the published snapshot rather than a fresh ClickHouse query, so comp detail and the tier list can never disagree._
+- [x] 1.11 Build the web Tier List page: filter controls, comp cards, patch/refresh timestamp display, stale-data banner
   - _Requirements: 1.5, 1.6, 1.7_
-- [ ] 1.12 Build the web Comp Detail view: stats, units/items table, formation, augment priority (category labels only), curated augment list, explanation, stage guide
+  - _Done: filters live in the URL so a filtered view is shareable and survives reload._
+- [x] 1.12 Build the web Comp Detail view: stats, units/items table, formation, augment priority (category labels only), curated augment list, explanation, stage guide
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
-- [ ] 1.13 Write integration tests for both endpoints covering cache hit/miss and the "provisional" (low sample size) comp state
+- [x] 1.13 Write integration tests for both endpoints covering cache hit/miss and the "provisional" (low sample size) comp state
   - _Requirements: 1.4_
+  - _Done: driven through `app.inject()` against the real app assembly, so routing, the compliance hook and cache behaviour under test are the real ones._
 - [ ] 1.14 Deploy Phase 1 to a staging environment and manually validate against real current-patch data before enabling public access
   - _Requirements: —_
+  - _**Blocked on infrastructure and a Riot key.** Verified locally against a fixture API instead (tier list, filters, comp detail, 404, and the degraded path with the API killed mid-session). That is not a substitute for real current-patch data._
 - [ ] 1.15 Stand up web display-ad slots (non-core-content placements only — never inside tier list/comp/augment core UI) and the free/paid tier gate ahead of public launch, per `design-system.md`'s component rules for ad placement
   - _Requirements: 18.1, 18.2, 18.3, 18.4_
+  - _**Not started — needs a product decision first:** which ad network, and which features sit behind the paid tier. R18.2's "transformative" standard means the paid tier has to add insight, not just remove friction, so the candidate list (extended history, CSV/JSON export, custom notification rules) is a real choice rather than a default. Deliberately not guessed at._
 
 ## Phase 2 — Augment Intelligence & Comp Explanations (Compliance-Gated)
 
