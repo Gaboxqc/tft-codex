@@ -631,3 +631,150 @@ a:focus-visible {
 .advisor__error {
   color: var(--tftc-danger);
 }
+
+/* ── Personal analytics ────────────────────────────────────────────────── */
+
+.sign-in-prompt {
+  background: var(--tftc-surface-1);
+  border: 1px solid var(--tftc-surface-2);
+  border-radius: var(--tftc-radius-md);
+  padding: var(--tftc-space-6);
+  max-width: 60ch;
+}
+
+.sign-in-prompt h2 {
+  font-family: var(--tftc-font-display);
+  font-size: var(--tftc-text-h2-size);
+  line-height: var(--tftc-text-h2-line);
+  margin: 0 0 var(--tftc-space-3);
+}
+
+.sign-in-prompt p {
+  color: var(--tftc-text-secondary);
+  margin: 0 0 var(--tftc-space-4);
+}
+
+.sign-in-prompt__note {
+  font-size: var(--tftc-text-caption-size);
+  line-height: var(--tftc-text-caption-line);
+  margin-bottom: 0;
+}
+
+/*
+ * Placement tone. Paired with the number itself everywhere it appears, so the
+ * information never lives in the hue alone (design-system.md §7).
+ */
+.dashboard__placement,
+.match-list__placement {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.dashboard__placement--good,
+.match-list__placement--good {
+  color: var(--tftc-success);
+}
+.dashboard__placement--even,
+.match-list__placement--even {
+  color: var(--tftc-text-primary);
+}
+.dashboard__placement--poor,
+.match-list__placement--poor {
+  color: var(--tftc-danger);
+}
+
+.dashboard__unmatched {
+  color: var(--tftc-text-secondary);
+  font-weight: 400;
+}
+
+.match-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tftc-space-2);
+}
+
+.match-list a {
+  display: grid;
+  grid-template-columns: 3rem 1fr auto;
+  gap: var(--tftc-space-3);
+  align-items: center;
+  background: var(--tftc-surface-1);
+  border-radius: var(--tftc-radius-sm);
+  padding: var(--tftc-space-2) var(--tftc-space-3);
+  color: inherit;
+  text-decoration: none;
+}
+
+.match-list a:hover {
+  background: var(--tftc-surface-2);
+  text-decoration: none;
+}
+
+.match-list__when {
+  font-size: var(--tftc-text-caption-size);
+  color: var(--tftc-text-secondary);
+}
+
+/* The narrative leads the review, so it gets real visual weight. */
+.coaching__narrative {
+  font-size: 17px;
+  line-height: 26px;
+  max-width: 68ch;
+  margin: 0;
+  padding: var(--tftc-space-4);
+  background: var(--tftc-surface-1);
+  border-left: 3px solid var(--tftc-cyan-400);
+  border-radius: 0 var(--tftc-radius-md) var(--tftc-radius-md) 0;
+}
+
+.suggestion-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tftc-space-3);
+}
+
+.suggestion-list li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tftc-space-1);
+  background: var(--tftc-surface-1);
+  border-radius: var(--tftc-radius-sm);
+  padding: var(--tftc-space-3);
+}
+
+.suggestion-list__tag {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tftc-cyan-300);
+}
+
+.delta {
+  font-variant-numeric: tabular-nums;
+}
+
+.delta--behind {
+  color: var(--tftc-danger);
+}
+.delta--ahead {
+  color: var(--tftc-success);
+}
+
+.policy-list {
+  max-width: 68ch;
+  margin: 0 0 var(--tftc-space-4);
+  padding-left: var(--tftc-space-6);
+  color: var(--tftc-text-secondary);
+  line-height: var(--tftc-text-body-line);
+}
+
+.policy-list strong {
+  color: var(--tftc-text-primary);
+}
