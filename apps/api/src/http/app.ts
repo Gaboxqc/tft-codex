@@ -11,8 +11,11 @@ import Fastify, { type FastifyInstance } from 'fastify';
 
 import { registerComplianceGuard } from './compliance-plugin.js';
 import type { AppContext } from './context.js';
+import { registerAugmentRoutes } from './routes/augments.js';
 import { registerCompRoutes } from './routes/comps.js';
 import { registerMetaRoutes } from './routes/meta.js';
+import { registerRecommendationRoutes } from './routes/recommendations.js';
+import { registerReferenceRoutes } from './routes/reference.js';
 
 export interface BuildAppOptions {
   context: AppContext;
@@ -49,6 +52,9 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
   await registerMetaRoutes(app, context);
   await registerCompRoutes(app, context);
+  await registerAugmentRoutes(app, context);
+  await registerRecommendationRoutes(app, context);
+  await registerReferenceRoutes(app, context);
 
   app.setNotFoundHandler(async (request, reply) =>
     reply.status(404).send({ error: 'not_found', detail: `No route for ${request.url}` }),

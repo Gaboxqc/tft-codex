@@ -7,13 +7,16 @@
  * handlers physically cannot hold credentials that can read augment win rates.
  */
 import { loadConfig } from './config.js';
-import { createGatewayClickHouse } from './db/clickhouse.js';
+import { createAdminClickHouse, createGatewayClickHouse } from './db/clickhouse.js';
 import { createPostgresPool } from './db/postgres.js';
 import { createRedis } from './db/redis.js';
 import { buildApp } from './http/app.js';
+import { AugmentInternalRepository } from './repositories/augment-internal-repository.js';
+import { AugmentRepository } from './repositories/augment-repository.js';
 import { CompRepository } from './repositories/comp-repository.js';
 import { IngestionRepository } from './repositories/ingestion-repository.js';
 import { OlapReadRepository } from './repositories/olap-repository.js';
+import { ReferenceRepository } from './repositories/reference-repository.js';
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -22,6 +25,17 @@ async function main(): Promise<void> {
   const cache = createRedis(config.redis.url);
   // Gateway credentials, not admin. Do not "temporarily" change this.
   const olapClient = createGatewayClickHouse(config);
+  /**
+   * Admin credentials, used for exactly one thing: letting the recommendation
+   * engine ORDER augment options. `AugmentInternalRepository` is the only
+   * consumer, and `POST /v1/recommendations` turns its output into a
+   * qualitative reason string rather than a number (design.md §7 step 3).
+   *
+   * This is the one place in the request path with credentials that can read
+   * the restricted table, which is why it is called out here rather than
+   * quietly constructed alongside the others.
+   */
+  const augmentStatsClient = createAdminClickHouse(config);
 
   const app = await buildApp({
     logger: true,
@@ -29,8 +43,11 @@ async function main(): Promise<void> {
       config,
       cache,
       comps: new CompRepository(db),
+      augments: new AugmentRepository(db),
       ingestion: new IngestionRepository(db),
       olap: new OlapReadRepository(olapClient),
+      augmentStats: new AugmentInternalRepository(augmentStatsClient),
+      reference: new ReferenceRepository(db),
       log: (message, detail) => console.warn(`[api] ${message}`, detail ?? ''),
     },
   });
