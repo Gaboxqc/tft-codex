@@ -1,51 +1,91 @@
 /**
- * Tier list landing page — a placeholder until Phase 1 task 1.11 builds the
- * real thing against `GET /v1/meta/tier-list`.
+ * The tier list — the product's front door (task 1.11).
  *
- * It exists now so the Phase 0 shell is verifiably wired: shared tokens
- * resolve, the layout renders, and the Riot disclaimer (R12.3) is present on a
- * real page rather than only in a test.
+ * Server-rendered so the first paint is the actual data rather than a spinner
+ * (design.md §13's reason for choosing Next). Filters live in the URL, so a
+ * filtered view is shareable and survives a reload.
+ *
+ * _Requirements: 1.5, 1.6, 1.7, 11.2_
  */
-import { TierBadge, TrendIndicator } from '@tft-codex/ui';
+import { Suspense } from 'react';
+import { StaleDataBanner } from '@tft-codex/ui';
 
-export default function HomePage() {
+import { getTierList } from '@/lib/api';
+import { CompCard } from './_components/CompCard';
+import { TierListFilters } from './_components/TierListFilters';
+
+export const dynamic = 'force-dynamic';
+
+interface HomePageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+const single = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const params = await searchParams;
+  const result = await getTierList({
+    ...(single(params['tier']) ? { tier: single(params['tier'])! } : {}),
+    ...(single(params['playstyle']) ? { playstyle: single(params['playstyle'])! } : {}),
+    ...(single(params['difficulty']) ? { difficulty: single(params['difficulty'])! } : {}),
+    ...(single(params['patch']) ? { patch: single(params['patch'])! } : {}),
+  });
+
   return (
     <>
-      <h1 className="page-title">Live tier list</h1>
-      <p className="page-lede">
-        Every tier here is computed from real ranked match data, using a scoring formula we publish
-        rather than hide. Nothing on this page is hand-picked.
-      </p>
+      <header className="page-head">
+        <h1 className="page-title">Live tier list</h1>
+        <p className="page-lede">
+          Computed from real ranked match data using a <a href="/methodology">formula we publish</a>{' '}
+          — not a hand-picked list.
+        </p>
+      </header>
 
-      <div className="placeholder-grid">
-        <section className="placeholder-card">
-          <h2>
-            Coming in Phase 1 <TierBadge tier="provisional" />
-          </h2>
-          <p>
-            The crawler, aggregation job and tier-scoring formula land in tasks 1.1–1.11. This page
-            renders the shared design tokens and components in the meantime.
-          </p>
-        </section>
+      <Suspense fallback={null}>
+        <TierListFilters />
+      </Suspense>
 
-        <section className="placeholder-card">
-          <h2>
-            Tier badges <TierBadge tier="S" />
-          </h2>
-          <p>
-            Letter only, never a number beside it — a figure next to a tier reads as a stat, which
-            is exactly what Riot&apos;s augment display restriction forbids.
-          </p>
-        </section>
+      {!result.ok ? (
+        // R11.2 — degraded, not broken. Say what happened rather than throwing.
+        <div className="tftc-stale-banner" role="status">
+          <span className="tftc-stale-banner__icon" aria-hidden="true">
+            ⚠
+          </span>
+          <span>
+            {result.reason === 'not-found'
+              ? 'No tier list has been published yet. The data pipeline needs to run at least once.'
+              : `Couldn't reach the meta engine: ${result.detail}`}
+          </span>
+        </div>
+      ) : (
+        <>
+          {result.data.stale && (
+            <StaleDataBanner
+              lastRefreshedAt={result.data.lastRefreshedAt}
+              patch={result.data.patch}
+            />
+          )}
 
-        <section className="placeholder-card">
-          <h2>Trend</h2>
-          <p>
-            <TrendIndicator trend="rising" /> — trend carries a glyph, not just a hue, so the
-            information survives for colorblind users.
+          <p className="tier-list__meta tftc-stat">
+            Patch <strong>{result.data.patch}</strong> · updated{' '}
+            <time dateTime={result.data.lastRefreshedAt}>
+              {new Date(result.data.lastRefreshedAt).toUTCString()}
+            </time>{' '}
+            · formula v{result.data.scoringFormulaVersion}
           </p>
-        </section>
-      </div>
+
+          {result.data.entries.length === 0 ? (
+            <p className="empty-state">No comps match those filters on this patch.</p>
+          ) : (
+            <div className="comp-grid">
+              {result.data.entries.map((entry) => (
+                <CompCard key={entry.compId} entry={entry} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </>
   );
 }
