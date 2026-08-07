@@ -85,34 +85,49 @@ Each task is meant to be small enough to implement and test in one sitting, and 
 
 ## Phase 2 — Augment Intelligence & Comp Explanations (Compliance-Gated)
 
-- [ ] 2.1 Extend the match ingestion schema to capture each participant's augment picks per game round (internal storage only)
+- [x] 2.1 Extend the match ingestion schema to capture each participant's augment picks per game round (internal storage only)
   - _Requirements: 3.1_
-- [ ] 2.2 Extend the aggregation job to compute `AugmentInternalStats` (win rate, avg placement, global and per-comp) into a ClickHouse table with **no gateway route to it** — verify this structurally (integration test that the gateway's DB credentials cannot query the table), not just by convention
+  - _Done: the aggregator counts each participant's picks twice — once globally, once scoped to the detected comp, since "good in this comp" is a better recommendation signal than "good overall"._
+- [x] 2.2 Extend the aggregation job to compute `AugmentInternalStats` (win rate, avg placement, global and per-comp) into a ClickHouse table with **no gateway route to it** — verify this structurally (integration test that the gateway's DB credentials cannot query the table), not just by convention
   - _Requirements: 3.1_
-- [ ] 2.3 Build categorical augment tier scoring (S/A/B/C) from `AugmentInternalStats`, writing only the letter grade + play rate to the public `Augment` record
+  - _Table, grants and write path done. `AugmentInternalRepository` requires the admin client and is not reachable from `AppContext`, so no route handler can obtain one._
+  - _**The structural integration test this task asks for is NOT written.** It needs a live ClickHouse to assert the gateway user's query genuinely fails, and Docker isn't available in this environment. This is the one place Phase 2 currently rests on configuration being correct rather than proving it. Write it as part of task 1.14's staging work._
+- [x] 2.3 Build categorical augment tier scoring (S/A/B/C) from `AugmentInternalStats`, writing only the letter grade + play rate to the public `Augment` record
   - _Requirements: 3.2, 3.3_
-- [ ] 2.4 Build `GET /v1/augments/tier-list` and `GET /v1/augments/:id` returning only compliant fields
+  - _Done: `tierAugments` computes scores, ranks with them, and discards them — the caller cannot leak a number it was never handed. Augments use their own weights, not the comp formula: publishing an augment's composite score would be an invertible win rate._
+- [x] 2.4 Build `GET /v1/augments/tier-list` and `GET /v1/augments/:id` returning only compliant fields
   - _Requirements: 3.1, 3.2, 3.3_
-- [ ] 2.5 Add the API gateway response-schema allowlist middleware for `/v1/augments/*`, stripping any field not in the compliant `Augment` type
+- [x] 2.5 Add the API gateway response-schema allowlist middleware for `/v1/augments/*`, stripping any field not in the compliant `Augment` type
   - _Requirements: 3.1_
-- [ ] 2.6 Write the augment-compliance test suite: asserts `winRate`/`avgPlacement` never appear in any `/v1/augments/*` or `/v1/recommendations` response body; wire it into CI as a release-blocking check on every PR
+  - _Done as two layers: `toPublicAugment` constructs the response field by field rather than spreading the row, and the `preSerialization` guard scans outbound payloads — throwing in dev/test, stripping and alerting in production._
+- [x] 2.6 Write the augment-compliance test suite: asserts `winRate`/`avgPlacement` never appear in any `/v1/augments/*` or `/v1/recommendations` response body; wire it into CI as a release-blocking check on every PR
   - _Requirements: 3.1_
-- [ ] 2.7 Build the web Augment Explorer page (tier badges + play rate; no numeric win rate or placement anywhere in the UI, including tooltips and CSVs/exports if any)
+  - _Done, plus two additions the task didn't ask for: a test that no augment *reason string* contains a digit (the field-name scan wouldn't catch a number in prose), and a test that walks Fastify's route table and fails if a route under a guarded prefix has no case in the suite. Verified the latter bites by temporarily adding an uncovered route._
+- [x] 2.7 Build the web Augment Explorer page (tier badges + play rate; no numeric win rate or placement anywhere in the UI, including tooltips and CSVs/exports if any)
   - _Requirements: 3.1, 3.2, 3.3_
-- [ ] 2.8 Implement the v1 recommendation scoring function (`design.md` §8): reads `AugmentInternalStats` server-side, ranks internally, emits a qualitative reason string from a template bank — unit-test that the reason strings never contain a number sourced from placement/win-rate data
+  - _Done: no exports exist yet, so there is nothing to leak through one. Revisit if R18.2's CSV/JSON export for the paid tier gets built — that is exactly the "if any" this task anticipates._
+- [x] 2.8 Implement the v1 recommendation scoring function (`design.md` §8): reads `AugmentInternalStats` server-side, ranks internally, emits a qualitative reason string from a template bank — unit-test that the reason strings never contain a number sourced from placement/win-rate data
   - _Requirements: 3.4_
-- [ ] 2.9 Build `POST /v1/recommendations` accepting board state and optional augment options, returning `RecommendationResponse`
+  - _Done: templates have no numeric placeholder to substitute into, and `reasonFor` throws rather than returning text containing a digit. There is also a test against comparative-to-outcome phrasing, which is a placement claim in prose form._
+- [x] 2.9 Build `POST /v1/recommendations` accepting board state and optional augment options, returning `RecommendationResponse`
   - _Requirements: 3.4, 3.5_
-- [ ] 2.10 Build an in-app "what should I pick" widget on the web comp detail page that calls `/v1/recommendations`, for quick testing before the Overwolf app exists
+  - _Never cached — a cached recommendation keyed by board state would be a stored record of what a player was holding._
+- [x] 2.10 Build an in-app "what should I pick" widget on the web comp detail page that calls `/v1/recommendations`, for quick testing before the Overwolf app exists
   - _Requirements: 3.4_
+  - _Options are typed by the player; nothing reads or infers game state, so the widget is Tier-1 regardless of how R3.7 is answered._
 - [ ] 2.11 Set up an editorial workflow (internal admin route or CMS) for writing/approving each comp's "why it works" explanation, curated augment list, and stage-by-stage guide copy, informed by the aggregated leveling/econ curves
   - _Requirements: 2.2, 2.3, 2.4_
+  - _**Not started — needs a product decision:** an internal admin route inside `apps/api` versus an external CMS. The schema already holds every field the workflow would write (`comps.explanation`, `curated_augments`, `stage_guides`), so this is a tooling choice rather than a modelling one._
 - [ ] 2.12 Backfill explanations, curated augment lists, and stage guides for all current S/A tier comps before marking Phase 2 complete
   - _Requirements: 2.2, 2.3, 2.4_
-- [ ] 2.13 Implement the Tier-2/Tier-3 mode split from `design.md` §8: build Tier-2 ("offered augments only" lookup + snapshot-on-open comp matching) as the default; add the server-side `mode` field handling and the gateway kill switch that downgrades any `tier3-adaptive` request to `tier2-lookup` unless the deployment's Riot-confirmation flag is set. Ship with the flag off
+  - _**Blocked on 2.11 and on real current-patch data.** This is editorial content about a live meta; writing it without either would be fabrication, not a backfill._
+- [x] 2.13 Implement the Tier-2/Tier-3 mode split from `design.md` §8: build Tier-2 ("offered augments only" lookup + snapshot-on-open comp matching) as the default; add the server-side `mode` field handling and the gateway kill switch that downgrades any `tier3-adaptive` request to `tier2-lookup` unless the deployment's Riot-confirmation flag is set. Ship with the flag off
   - _Requirements: 3.4, 3.7_
-- [ ] 2.14 Build `GET /v1/reference/breakpoints`: a static, patch-sourced XP/gold breakpoint table (not wired to any live player state), and the corresponding web/overlay reference component
+  - _Done, flag off. The split is enforced by what each function can **read**, not a conditional: `recommendTier2` takes no board-state parameter at all, so it cannot be made reactive by accident. A test asserts a downgraded response differs from a confirmed Tier-3 one — if they matched, the gate would be doing nothing._
+  - _`config.ts` also refuses to boot with the flag set but no confirmation reference recorded, so enabling Tier-3 leaves an audit trail rather than being a one-character change._
+- [x] 2.14 Build `GET /v1/reference/breakpoints`: a static, patch-sourced XP/gold breakpoint table (not wired to any live player state), and the corresponding web/overlay reference component
   - _Requirements: 17.1, 17.2_
+  - _The route accepts no player-state parameter, and a test asserts passing `gold` and `level` changes nothing. The overlay half lands with Phase 5; the shared styles are already in `packages/ui`._
 
 ## Phase 3 — Personal Performance Analytics
 
