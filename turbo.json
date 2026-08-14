@@ -13,6 +13,14 @@
     "test": {
       "dependsOn": ["^build"]
     },
+    // Runs through Turborepo for the same reason `test` does: the workspace
+    // packages resolve through their built `dist/`, so anything importing
+    // `@tft-codex/shared-types` needs it built first. Invoking the script
+    // directly across workspaces skips that and fails to resolve the entry —
+    // which is exactly what broke CI between Phase 1 and Phase 3.
+    "test:compliance": {
+      "dependsOn": ["^build"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

@@ -57,8 +57,14 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Through Turborepo, not `npm run --workspaces`. The workspace packages
+      # resolve via their built `dist/`, so `@tft-codex/shared-types` has to be
+      # built before anything importing it can even load. Turbo's `^build`
+      # dependency handles that; invoking the scripts directly does not, and
+      # that mismatch is what made this gate fail on every run from Phase 1 to
+      # Phase 3 while the suites themselves were green.
       - name: Augment display restriction (R3.1)
-        run: npm run test:compliance --workspaces --if-present
+        run: npx turbo run test:compliance
 
       - name: Assert Tier-3 stays disabled by default (R3.7)
         run: |
