@@ -234,6 +234,120 @@ export function getCoaching(
   );
 }
 
+// ── Builder (R6) ────────────────────────────────────────────────────────────
+
+export interface BuilderUnitView {
+  championId: string;
+  starLevel: 1 | 2 | 3;
+  itemIds: string[];
+}
+
+export interface TraitView {
+  traitId: string;
+  name: string;
+  count: number;
+  activeBreakpoint: number | null;
+  nextBreakpoint: number | null;
+  unitsToNext: number | null;
+  oneAway: boolean;
+}
+
+export interface EstimateView {
+  index: number;
+  frontline: number;
+  damage: number;
+  confidence: 'low' | 'medium';
+  caveats: string[];
+  formulaVersion: string;
+}
+
+export interface BoardAnalysis {
+  patch: string;
+  traits: TraitView[];
+  estimate: EstimateView;
+  matchedComp: { compId: string; name: string; matchScore: number } | null;
+}
+
+export interface SavedBoard {
+  id: string;
+  puuid: string | null;
+  patch: string;
+  name: string;
+  units: BuilderUnitView[];
+  level: number;
+  shareUrl?: string;
+}
+
+export function analyzeBoard(body: {
+  units: BuilderUnitView[];
+  level: number;
+  name?: string;
+}): Promise<ApiResult<BoardAnalysis>> {
+  return postJson<BoardAnalysis>('/v1/builder/analyze', body);
+}
+
+export function saveBoard(body: {
+  name: string;
+  units: BuilderUnitView[];
+  level: number;
+}): Promise<ApiResult<SavedBoard>> {
+  return postJson<SavedBoard>('/v1/builder/comps', body);
+}
+
+export function getBoard(id: string): Promise<ApiResult<BoardAnalysis & { board: SavedBoard }>> {
+  return getJson<BoardAnalysis & { board: SavedBoard }>(
+    `/v1/builder/comps/${encodeURIComponent(id)}`,
+  );
+}
+
+export interface OptimizeView {
+  allocations: { championId: string; name: string; itemIds: string[]; rationale: string }[];
+  unallocated: string[];
+  tradeOffs: { itemId: string; contestedBy: string[]; explanation: string }[];
+}
+
+export function optimizeItems(body: {
+  heldItems: string[];
+  boardUnits: string[];
+  compId?: string;
+}): Promise<ApiResult<OptimizeView>> {
+  return postJson<OptimizeView>('/v1/items/optimize', body);
+}
+
+/**
+ * Shared POST helper.
+ *
+ * `credentials: 'include'` so the session cookie rides along when the player
+ * happens to be signed in — the builder does not require it, but an
+ * attributed save is nicer than an orphaned one.
+ */
+async function postJson<T>(path: string, body: unknown): Promise<ApiResult<T>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'include',
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        reason: response.status === 401 ? 'unauthenticated' : 'unavailable',
+        detail: `The builder service returned ${response.status}.`,
+      };
+    }
+    return { ok: true, data: (await response.json()) as T };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: 'unavailable',
+      detail: error instanceof Error ? error.message : 'Could not reach the builder service.',
+    };
+  }
+}
+
 export function getBreakpoints(patch?: string): Promise<ApiResult<BreakpointReference>> {
   const query = patch ? `?patch=${encodeURIComponent(patch)}` : '';
   return getJson<BreakpointReference>(`/v1/reference/breakpoints${query}`, {
