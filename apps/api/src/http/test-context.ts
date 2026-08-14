@@ -12,6 +12,8 @@ import type { MatchSummary, PlayerProfile, TierList } from '@tft-codex/shared-ty
 import { issueAccessToken } from '../auth/session.js';
 import type { AppConfig } from '../config.js';
 import type { AuthRepository } from '../repositories/auth-repository.js';
+import type { BuilderComp, BuilderRepository } from '../repositories/builder-repository.js';
+import type { GameDataRepository } from '../repositories/game-data-repository.js';
 import type { PlayerRepository } from '../repositories/player-repository.js';
 import { CACHE_KEYS, type Cache } from '../db/redis.js';
 import type { AugmentCounters } from '../domain/augment-tiering.js';
@@ -399,6 +401,98 @@ export function buildTestContext(options: TestContextOptions = {}): {
     deleteSessionsFor: vi.fn(async () => 0),
   } as unknown as AuthRepository;
 
+  const boards = new Map<string, BuilderComp>();
+
+  const builder = {
+    save: vi.fn(async (input: Omit<BuilderComp, 'id' | 'createdAt' | 'updatedAt'>) => {
+      const saved: BuilderComp = {
+        ...input,
+        id: `board-${boards.size + 1}`,
+        createdAt: '2026-08-14T00:00:00.000Z',
+        updatedAt: '2026-08-14T00:00:00.000Z',
+      };
+      boards.set(saved.id, saved);
+      return saved;
+    }),
+    findById: vi.fn(async (id: string) => boards.get(id) ?? null),
+    update: vi.fn(async (id: string, puuid: string) => {
+      const existing = boards.get(id);
+      // Mirrors the real WHERE clause: ownership is the authorization check.
+      return existing && existing.puuid === puuid ? existing : null;
+    }),
+    listForPlayer: vi.fn(async (puuid: string) =>
+      [...boards.values()].filter((board) => board.puuid === puuid),
+    ),
+    delete: vi.fn(async () => true),
+  } as unknown as BuilderRepository;
+
+  /**
+   * A small but internally consistent slice of game data: Vanguard/Sorcerer
+   * champions, two recipes, and one emblem, so builder tests exercise real
+   * trait resolution rather than a stub that always agrees.
+   */
+  const gameData = {
+    forPatch: vi.fn(async (forPatchId: string) => ({
+      patch: forPatchId,
+      championNames: new Map([
+        ['TFT17_Zoe', 'Zoe'],
+        ['TFT17_Leona', 'Leona'],
+        ['TFT17_Braum', 'Braum'],
+        ['TFT17_Lulu', 'Lulu'],
+      ]),
+      costs: new Map([
+        ['TFT17_Zoe', 4],
+        ['TFT17_Leona', 2],
+        ['TFT17_Braum', 2],
+        ['TFT17_Lulu', 1],
+      ]),
+      traitsByChampion: new Map([
+        ['TFT17_Zoe', ['Sorcerer']],
+        ['TFT17_Leona', ['Vanguard']],
+        ['TFT17_Braum', ['Vanguard']],
+        ['TFT17_Lulu', ['Sorcerer']],
+      ]),
+      traits: new Map([
+        [
+          'Vanguard',
+          { id: 'Vanguard', name: 'Vanguard', type: 'class' as const, breakpoints: [2, 4] },
+        ],
+        [
+          'Sorcerer',
+          { id: 'Sorcerer', name: 'Sorcerer', type: 'origin' as const, breakpoints: [2, 4] },
+        ],
+      ]),
+      recipes: new Map([
+        [
+          'TFT_Item_RabadonsDeathcap',
+          {
+            id: 'TFT_Item_RabadonsDeathcap',
+            name: 'Rabadons',
+            components: ['Rod', 'Rod'] as [string, string],
+            tags: ['AP'],
+          },
+        ],
+        [
+          'TFT_Item_WarmogsArmor',
+          {
+            id: 'TFT_Item_WarmogsArmor',
+            name: 'Warmogs',
+            components: ['Belt', 'Belt'] as [string, string],
+            tags: ['tank'],
+          },
+        ],
+      ]),
+      emblemGrants: new Map([['TFT_Item_VanguardEmblem', 'Vanguard']]),
+      roles: new Map([
+        ['TFT17_Zoe', 'carry' as const],
+        ['TFT17_Leona', 'tank' as const],
+        ['TFT17_Braum', 'tank' as const],
+        ['TFT17_Lulu', 'support' as const],
+      ]),
+    })),
+    invalidate: vi.fn(),
+  } as unknown as GameDataRepository;
+
   return {
     store,
     context: {
@@ -412,6 +506,8 @@ export function buildTestContext(options: TestContextOptions = {}): {
       reference,
       players,
       auth,
+      builder,
+      gameData,
       log: () => undefined,
     },
   };
