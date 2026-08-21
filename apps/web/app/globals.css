@@ -1216,3 +1216,9 @@ a:focus-visible {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Friends leaderboard (task 6.8). The viewer's own row, marked by more than colour. */
+.leaderboard__you {
+  background: var(--tftc-surface-1);
+  outline: 1px solid var(--tftc-cyan-400);
+}

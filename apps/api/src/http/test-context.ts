@@ -23,6 +23,8 @@ import type { AugmentInternalRepository } from '../repositories/augment-internal
 import type { AugmentRepository, PublicAugmentRecord } from '../repositories/augment-repository.js';
 import type { CompMetadata, CompRepository } from '../repositories/comp-repository.js';
 import type { DeliveryRepository } from '../repositories/delivery-repository.js';
+import type { FriendRepository } from '../repositories/friend-repository.js';
+import type { FriendStats } from '../domain/leaderboard.js';
 import type { IngestionRepository } from '../repositories/ingestion-repository.js';
 import type { OlapReadRepository } from '../repositories/olap-repository.js';
 import type { ReferenceRepository } from '../repositories/reference-repository.js';
@@ -215,6 +217,14 @@ export interface TestContextOptions {
   /** R8.2 — null means the draft summary is still awaiting review. */
   metaImpactSummary?: string | null;
   emailStatus?: { address: string | null; verified: boolean };
+  friendsOptIn?: boolean;
+  friendStats?: FriendStats[];
+  pendingFriends?: {
+    puuid: string;
+    riotId: string;
+    direction: 'incoming' | 'outgoing';
+    createdAt: string;
+  }[];
   /** Pending, unapproved draft (R8.2). */
   metaSummaryDraft?: string | null;
   balanceChanges?: {
@@ -628,6 +638,19 @@ export function buildTestContext(options: TestContextOptions = {}): {
   const storedPrefs = new Map<string, unknown[]>();
   const storedBookmarks = new Map<string, { kind: string; targetId: string }[]>();
 
+  const friends = {
+    optInStatus: vi.fn(async () => options.friendsOptIn ?? false),
+    setOptIn: vi.fn(async () => undefined),
+    findByRiotId: vi.fn(async (riotId: string) =>
+      riotId.toLowerCase() === 'friend#euw' ? { puuid: 'puuid-2', riotId: 'Friend#EUW' } : null,
+    ),
+    request: vi.fn(async () => 'sent' as const),
+    accept: vi.fn(async (_addressee: string, requester: string) => requester === 'puuid-2'),
+    remove: vi.fn(async () => true),
+    pendingFor: vi.fn(async () => options.pendingFriends ?? []),
+    leaderboardFor: vi.fn(async () => options.friendStats ?? []),
+  } as unknown as FriendRepository;
+
   const storedPush = new Map<
     string,
     { endpoint: string; keys: { p256dh: string; auth: string } }[]
@@ -710,6 +733,7 @@ export function buildTestContext(options: TestContextOptions = {}): {
       patches,
       notifications,
       delivery,
+      friends,
       log: () => undefined,
     },
   };

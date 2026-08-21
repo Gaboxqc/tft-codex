@@ -616,3 +616,70 @@ export function setNotificationEmail(
 export function clearNotificationEmail(): Promise<ApiResult<{ cleared: boolean }>> {
   return sendJson<{ cleared: boolean }>('DELETE', '/v1/notifications/email', undefined);
 }
+
+// ── Friends and the comparison leaderboard (task 6.8) ───────────────────────
+//
+// Note what these types do not carry: another player's PUUID. Riot's permanent
+// identifier never reaches a client — the Riot ID is what everything here is
+// keyed by.
+
+export interface FriendSummaryView {
+  riotId: string;
+}
+
+export interface FriendRequestView {
+  riotId: string;
+  direction: 'incoming' | 'outgoing';
+  createdAt: string;
+}
+
+export interface FriendsView {
+  optedIn: boolean;
+  friends: FriendSummaryView[];
+  pending: FriendRequestView[];
+}
+
+export interface LeaderboardRowView {
+  riotId: string;
+  games: number;
+  avgPlacement: number | null;
+  top4Rate: number | null;
+  rank: number | null;
+  isYou: boolean;
+  provisional: boolean;
+}
+
+export function getFriends(cookie: string): Promise<ApiResult<FriendsView>> {
+  return getJson<FriendsView>('/v1/friends', { cookie });
+}
+
+export function getFriendLeaderboard(
+  cookie: string,
+): Promise<ApiResult<{ rows: LeaderboardRowView[]; standing: string }>> {
+  return getJson<{ rows: LeaderboardRowView[]; standing: string }>('/v1/friends/leaderboard', {
+    cookie,
+  });
+}
+
+export function setFriendsOptIn(optIn: boolean): Promise<ApiResult<{ optedIn: boolean }>> {
+  return sendJson<{ optedIn: boolean }>('PUT', '/v1/friends/opt-in', { optIn });
+}
+
+export function sendFriendRequest(
+  riotId: string,
+): Promise<ApiResult<{ riotId: string; outcome: 'sent' | 'accepted' | 'exists' }>> {
+  return sendJson<{ riotId: string; outcome: 'sent' | 'accepted' | 'exists' }>(
+    'POST',
+    '/v1/friends/requests',
+    { riotId },
+  );
+}
+
+export function acceptFriendRequest(riotId: string): Promise<ApiResult<{ accepted: boolean }>> {
+  return sendJson<{ accepted: boolean }>('POST', '/v1/friends/requests/accept', { riotId });
+}
+
+/** Declines, cancels or unfriends — one operation, deliberately. */
+export function removeFriend(riotId: string): Promise<ApiResult<{ removed: boolean }>> {
+  return sendJson<{ removed: boolean }>('DELETE', '/v1/friends', { riotId });
+}

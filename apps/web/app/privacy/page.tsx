@@ -13,7 +13,10 @@
  *   notifications page for that purpose (task 6.6) — described below, because
  *   a privacy page that lags the schema is worse than either alone.
  * - "deleted within 30 days" — every personal table cascades from that row, so
- *   deleting it removes the derived data too.
+ *   deleting it removes the derived data too. `push_subscriptions` and
+ *   `friendships` cascade the same way.
+ * - The friends section describes the only path by which one player sees
+ *   another's data (task 6.8), and states the exact three fields shared.
  * - "we never see your password" — RSO is the only auth path; no endpoint in
  *   this codebase accepts a credential.
  *
@@ -83,6 +86,26 @@ export default function PrivacyPage() {
           confirm it by clicking a link we mail there, we use it for nothing but the notifications
           you switched on, we never share or sell it, and removing it is one button on that same
           page. Unlinking your account deletes it along with everything else.
+        </p>
+      </section>
+
+      <section className="comp-detail__section">
+        <h2>Friends, if you turn them on</h2>
+        <p className="comp-detail__prose">
+          Friends is the only feature in TFT Codex where another person sees anything about you, and
+          it is <strong>off unless you switch it on</strong>. While it is off you cannot be found by
+          Riot ID, cannot be sent requests, and appear on nobody&apos;s comparison.
+        </p>
+        <p className="comp-detail__prose">
+          With it on, a player who knows your Riot ID can send you a request. If you accept, the two
+          of you can see each other&apos;s{' '}
+          <strong>games played, average placement and top-4 rate</strong>. That is the entire list.
+          Not your match history, not which comps you played, not which augments you took, and not
+          your PUUID — that identifier never leaves our servers.
+        </p>
+        <p className="comp-detail__prose">
+          Turning friends off deletes every connection and pending request immediately. Turning it
+          back on later starts from nothing, so anyone who was connected to you has to ask again.
         </p>
       </section>
 

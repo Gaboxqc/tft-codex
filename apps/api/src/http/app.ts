@@ -17,6 +17,7 @@ import { registerAuthRoutes } from './routes/auth.js';
 import { registerBuilderRoutes } from './routes/builder.js';
 import { registerCompRoutes } from './routes/comps.js';
 import { registerDeliveryRoutes } from './routes/delivery.js';
+import { registerFriendRoutes } from './routes/friends.js';
 import { registerEditorialRoutes } from './routes/editorial.js';
 import { registerMetaRoutes } from './routes/meta.js';
 import { registerPatchRoutes } from './routes/patches.js';
@@ -72,6 +73,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await registerPlayerRoutes(app, context);
   await registerEditorialRoutes(app, context);
   await registerDeliveryRoutes(app, context);
+  await registerFriendRoutes(app, context);
   await registerBuilderRoutes(app, context);
   await registerPatchRoutes(app, context);
 
