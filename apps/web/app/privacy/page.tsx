@@ -7,8 +7,11 @@
  * Every claim below is one the code actually enforces, and the enforcement is
  * named so it can be checked rather than trusted:
  *
- * - "PUUID, region and Riot ID only" — that is the whole of `player_profiles`.
- *   There is no email or password column to fill in.
+ * - "PUUID, region and Riot ID only" — that is what linking an account stores.
+ *   There is no password column at all. There is an optional
+ *   `notification_email`, which is null unless the player typed one into the
+ *   notifications page for that purpose (task 6.6) — described below, because
+ *   a privacy page that lags the schema is worse than either alone.
  * - "deleted within 30 days" — every personal table cascades from that row, so
  *   deleting it removes the derived data too.
  * - "we never see your password" — RSO is the only auth path; no endpoint in
@@ -34,7 +37,8 @@ export default function PrivacyPage() {
         <h1 className="page-title">Privacy policy</h1>
         <p className="page-lede">
           The short version: you can use almost all of TFT Codex without an account, and if you do
-          link one, we store three things about you and delete them on request.
+          link one, we store three things about you — plus an email address only if you volunteer
+          one for notifications — and delete them all on request.
         </p>
       </header>
 
@@ -67,10 +71,18 @@ export default function PrivacyPage() {
           </li>
         </ul>
         <p className="comp-detail__prose">
-          That is the complete list. We store no email address and no password, because sign-in goes
-          through <strong>Riot Sign-On</strong> and we never receive a credential in the first
-          place. There is no field anywhere in TFT Codex that asks for your Riot password — if you
-          are ever shown one, it is not us.
+          We store no password, because sign-in goes through <strong>Riot Sign-On</strong> and we
+          never receive a credential in the first place. There is no field anywhere in TFT Codex
+          that asks for your Riot password — if you are ever shown one, it is not us.
+        </p>
+        <p className="comp-detail__prose">
+          The only thing we hold beyond that list is an{' '}
+          <strong>email address, if you choose to give us one</strong> for notifications. Linking
+          your Riot account does not give us an address and we never ask Riot for one — it exists
+          only if you type it into the notifications page yourself. We send nothing to it until you
+          confirm it by clicking a link we mail there, we use it for nothing but the notifications
+          you switched on, we never share or sell it, and removing it is one button on that same
+          page. Unlinking your account deletes it along with everything else.
         </p>
       </section>
 

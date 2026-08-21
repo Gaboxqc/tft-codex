@@ -181,6 +181,22 @@ export class NotificationRepository {
   }
 
   /**
+   * Records a transient failure without giving up on the message.
+   *
+   * The row stays pending, so the next run retries it. `attempts` is what
+   * makes a permanently-flapping destination visible rather than invisible —
+   * a row with a high count and no `sent_at` is worth an operator's attention.
+   */
+  async recordAttempt(id: number, error: string): Promise<void> {
+    await this.db.query(
+      `UPDATE notification_outbox
+          SET attempts = attempts + 1, last_attempt_at = now(), error = $2
+        WHERE id = $1`,
+      [id, error],
+    );
+  }
+
+  /**
    * Marks a message failed.
    *
    * Terminal rather than retried automatically: a bounced address or a revoked

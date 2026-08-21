@@ -572,3 +572,47 @@ async function sendJson<T>(
     };
   }
 }
+
+// ── Notification delivery setup (task 6.6) ──────────────────────────────────
+
+export interface DeliveryStatusView {
+  email: string | null;
+  emailVerified: boolean;
+  pushSubscriptions: number;
+  /** Public by design; the private half never leaves the server. */
+  vapidPublicKey: string | null;
+  /** Which channels this deployment can actually deliver on. */
+  channels: Record<NotificationChannel, boolean>;
+}
+
+export function getDeliveryStatus(cookie: string): Promise<ApiResult<DeliveryStatusView>> {
+  return getJson<DeliveryStatusView>('/v1/notifications/delivery', { cookie });
+}
+
+/** Browser-side: the subscription object comes from the push manager. */
+export function registerPushSubscription(subscription: {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}): Promise<ApiResult<{ subscribed: boolean }>> {
+  return sendJson<{ subscribed: boolean }>('POST', '/v1/notifications/push', subscription);
+}
+
+export function unregisterPushSubscription(
+  endpoint: string,
+): Promise<ApiResult<{ removed: boolean }>> {
+  return sendJson<{ removed: boolean }>('DELETE', '/v1/notifications/push', { endpoint });
+}
+
+export function setNotificationEmail(
+  email: string,
+): Promise<ApiResult<{ email: string; verified: boolean; verificationSent: boolean }>> {
+  return sendJson<{ email: string; verified: boolean; verificationSent: boolean }>(
+    'PUT',
+    '/v1/notifications/email',
+    { email },
+  );
+}
+
+export function clearNotificationEmail(): Promise<ApiResult<{ cleared: boolean }>> {
+  return sendJson<{ cleared: boolean }>('DELETE', '/v1/notifications/email', undefined);
+}

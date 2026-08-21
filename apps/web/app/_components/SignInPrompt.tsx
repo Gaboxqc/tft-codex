@@ -23,8 +23,9 @@ export function SignInPrompt({ redirectTo = '/', what = 'your match history' }: 
     <section className="sign-in-prompt">
       <h2>Link your Riot account to see {what}</h2>
       <p>
-        Sign-in goes through Riot directly — we never see your password. We store your PUUID, region
-        and Riot ID display name, and nothing else.
+        Sign-in goes through Riot directly — we never see your password. Linking stores your PUUID,
+        region and Riot ID display name, and nothing else. (An email address is optional and
+        separate: you can add one later for notifications, or never.)
       </p>
       <p>
         <a className="tftc-btn tftc-btn--primary" href={signInHref(redirectTo)}>

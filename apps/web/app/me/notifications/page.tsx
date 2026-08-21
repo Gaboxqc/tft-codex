@@ -12,8 +12,9 @@
  */
 import type { Metadata } from 'next';
 
-import { getBookmarks, getNotificationPrefs } from '@/lib/api';
+import { getBookmarks, getDeliveryStatus, getNotificationPrefs } from '@/lib/api';
 import { sessionCookie } from '@/lib/session';
+import { DeliverySetup } from '../../_components/DeliverySetup';
 import { NotificationSettings } from '../../_components/NotificationSettings';
 import { SignInPrompt } from '../../_components/SignInPrompt';
 
@@ -23,15 +24,24 @@ export const metadata: Metadata = {
   title: 'Notifications',
 };
 
-export default async function NotificationsPage() {
+interface NotificationsPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+const single = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
+
+export default async function NotificationsPage({ searchParams }: NotificationsPageProps) {
+  const verifiedParam = single((await searchParams)['verified']);
   const cookie = await sessionCookie();
   if (!cookie) {
     return <SignInPrompt redirectTo="/me/notifications" what="your notification settings" />;
   }
 
-  const [prefs, bookmarks] = await Promise.all([
+  const [prefs, bookmarks, delivery] = await Promise.all([
     getNotificationPrefs(cookie),
     getBookmarks(cookie),
+    getDeliveryStatus(cookie),
   ]);
 
   if (!prefs.ok) {
@@ -56,9 +66,19 @@ export default async function NotificationsPage() {
         </p>
       </header>
 
+      {delivery.ok && (
+        <DeliverySetup
+          status={delivery.data}
+          verification={
+            verifiedParam === 'ok' ? 'ok' : verifiedParam === 'failed' ? 'failed' : undefined
+          }
+        />
+      )}
+
       <NotificationSettings
         initialPrefs={prefs.data.prefs}
         bookmarks={bookmarks.ok ? bookmarks.data.bookmarks : []}
+        channels={delivery.ok ? delivery.data.channels : undefined}
       />
     </>
   );

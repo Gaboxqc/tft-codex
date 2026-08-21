@@ -30,6 +30,7 @@ import type { AuthRepository } from '../repositories/auth-repository.js';
 import type { BuilderRepository } from '../repositories/builder-repository.js';
 import type { CompRepository } from '../repositories/comp-repository.js';
 import type { GameDataRepository } from '../repositories/game-data-repository.js';
+import type { DeliveryRepository } from '../repositories/delivery-repository.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
 import type { PatchRepository } from '../repositories/patch-repository.js';
 import type { IngestionRepository } from '../repositories/ingestion-repository.js';
@@ -66,6 +67,8 @@ export interface AppContext {
   patches: PatchRepository;
   /** Subscription preferences, bookmarks and the delivery outbox. */
   notifications: NotificationRepository;
+  /** Push subscriptions and the opt-in notification address (task 6.6). */
+  delivery: DeliveryRepository;
   /**
    * Only for the request-time lookups that genuinely need Riot: the Riot ID on
    * link, and lobby intel. The crawler has its own client with its own lanes.

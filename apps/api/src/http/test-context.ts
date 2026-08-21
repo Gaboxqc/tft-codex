@@ -22,6 +22,7 @@ import type { AugmentCounters } from '../domain/augment-tiering.js';
 import type { AugmentInternalRepository } from '../repositories/augment-internal-repository.js';
 import type { AugmentRepository, PublicAugmentRecord } from '../repositories/augment-repository.js';
 import type { CompMetadata, CompRepository } from '../repositories/comp-repository.js';
+import type { DeliveryRepository } from '../repositories/delivery-repository.js';
 import type { IngestionRepository } from '../repositories/ingestion-repository.js';
 import type { OlapReadRepository } from '../repositories/olap-repository.js';
 import type { ReferenceRepository } from '../repositories/reference-repository.js';
@@ -43,6 +44,7 @@ export const testConfig = (overrides: Partial<AppConfig> = {}): AppConfig => ({
   meta: { refreshIntervalMinutes: 30, compMinSampleSize: 200 },
   jwtSecret: 'test-secret-value-long-enough',
   webBaseUrl: 'http://localhost:3000',
+  apiPublicUrl: 'http://localhost:4000',
   rso: { clientId: 'test', clientSecret: 'secret', redirectUri: 'http://localhost:4000/cb' },
   privacy: { profileRetentionDays: 30 },
   compliance: { tier3RecommendationsConfirmed: false, tier3ConfirmationRef: null },
@@ -50,6 +52,7 @@ export const testConfig = (overrides: Partial<AppConfig> = {}): AppConfig => ({
   // defaults: the guard is closed by default and has to be opened on purpose.
   editorialToken: null,
   drafter: null,
+  delivery: { webPush: null, email: null },
   ...overrides,
 });
 
@@ -211,6 +214,7 @@ export interface TestContextOptions {
   matches?: MatchSummary[];
   /** R8.2 — null means the draft summary is still awaiting review. */
   metaImpactSummary?: string | null;
+  emailStatus?: { address: string | null; verified: boolean };
   /** Pending, unapproved draft (R8.2). */
   metaSummaryDraft?: string | null;
   balanceChanges?: {
@@ -624,6 +628,42 @@ export function buildTestContext(options: TestContextOptions = {}): {
   const storedPrefs = new Map<string, unknown[]>();
   const storedBookmarks = new Map<string, { kind: string; targetId: string }[]>();
 
+  const storedPush = new Map<
+    string,
+    { endpoint: string; keys: { p256dh: string; auth: string } }[]
+  >();
+
+  const delivery = {
+    saveSubscription: vi.fn(
+      async (
+        puuid: string,
+        subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
+      ) => {
+        const existing = storedPush.get(puuid) ?? [];
+        storedPush.set(puuid, [
+          ...existing.filter((entry) => entry.endpoint !== subscription.endpoint),
+          subscription,
+        ]);
+      },
+    ),
+    removeSubscription: vi.fn(async (puuid: string, endpoint: string) => {
+      const existing = storedPush.get(puuid) ?? [];
+      storedPush.set(
+        puuid,
+        existing.filter((entry) => entry.endpoint !== endpoint),
+      );
+      return existing.some((entry) => entry.endpoint === endpoint);
+    }),
+    countSubscriptions: vi.fn(async (puuid: string) => (storedPush.get(puuid) ?? []).length),
+    setEmail: vi.fn(async () => 'verification-token'),
+    verifyEmail: vi.fn(async (token: string) =>
+      token === 'verification-token' ? 'player@example.com' : null,
+    ),
+    clearEmail: vi.fn(async () => undefined),
+    emailStatus: vi.fn(async () => options.emailStatus ?? { address: null, verified: false }),
+    destinationFor: vi.fn(async () => ({ email: null, pushSubscriptions: [] })),
+  } as unknown as DeliveryRepository;
+
   const notifications = {
     prefsFor: vi.fn(async (puuid: string) => storedPrefs.get(puuid) ?? options.prefs ?? []),
     replacePrefs: vi.fn(async (puuid: string, prefs: unknown[]) => {
@@ -669,6 +709,7 @@ export function buildTestContext(options: TestContextOptions = {}): {
       gameData,
       patches,
       notifications,
+      delivery,
       log: () => undefined,
     },
   };
