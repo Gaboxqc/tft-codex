@@ -14,6 +14,8 @@ import type { AppConfig } from '../config.js';
 import type { AuthRepository } from '../repositories/auth-repository.js';
 import type { BuilderComp, BuilderRepository } from '../repositories/builder-repository.js';
 import type { GameDataRepository } from '../repositories/game-data-repository.js';
+import type { NotificationRepository } from '../repositories/notification-repository.js';
+import type { PatchRepository } from '../repositories/patch-repository.js';
 import type { PlayerRepository } from '../repositories/player-repository.js';
 import { CACHE_KEYS, type Cache } from '../db/redis.js';
 import type { AugmentCounters } from '../domain/augment-tiering.js';
@@ -203,6 +205,9 @@ export interface TestContextOptions {
   session?: { puuid: string; sessionId: string };
   profile?: PlayerProfile | null;
   matches?: MatchSummary[];
+  /** R8.2 — null means the draft summary is still awaiting review. */
+  metaImpactSummary?: string | null;
+  prefs?: { channel: string; category: string; enabled: boolean }[];
 }
 
 export function buildTestContext(options: TestContextOptions = {}): {
@@ -493,6 +498,119 @@ export function buildTestContext(options: TestContextOptions = {}): {
     invalidate: vi.fn(),
   } as unknown as GameDataRepository;
 
+  /**
+   * Patch history with two archived snapshots, so diff and meta-shift routes
+   * exercise a real comparison rather than an empty one.
+   */
+  const snapshotEntries = (tier: 'S' | 'A' | 'B' | 'C') => [
+    { ...tierListSnapshot().entries[0]!, tier },
+  ];
+
+  const archived = new Map([
+    [
+      'v1',
+      {
+        version: 'v1',
+        patch: patch ?? '17.9',
+        formulaVersion: '1.0.0',
+        publishedAt: '2026-08-14T00:00:00.000Z',
+        compCount: 1,
+        entries: snapshotEntries('C'),
+      },
+    ],
+    [
+      'v2',
+      {
+        version: 'v2',
+        patch: patch ?? '17.9',
+        formulaVersion: '1.0.0',
+        publishedAt: '2026-08-14T01:00:00.000Z',
+        compCount: 1,
+        entries: snapshotEntries('S'),
+      },
+    ],
+  ]);
+
+  const patches = {
+    list: vi.fn(async () => [
+      {
+        id: '17.9',
+        setNumber: 17,
+        setName: 'Into the Arcane',
+        releaseDate: '2026-07-30',
+        isCurrentPatch: true,
+        archived: false,
+        balanceChanges: [
+          { entityType: 'champion', entityId: 'TFT17_Zoe', summary: 'Spell damage reduced.' },
+        ],
+        metaImpactSummary: options.metaImpactSummary ?? null,
+      },
+    ]),
+    findById: vi.fn(async () => null),
+    latest: vi.fn(async () => ({
+      id: '17.9',
+      setNumber: 17,
+      setName: 'Into the Arcane',
+      releaseDate: '2026-07-30',
+      isCurrentPatch: true,
+      archived: false,
+      balanceChanges: [],
+      metaImpactSummary: options.metaImpactSummary ?? null,
+    })),
+    approveMetaSummary: vi.fn(async () => undefined),
+    saveSnapshot: vi.fn(async () => undefined),
+    listSnapshots: vi.fn(async () =>
+      [...archived.values()].map(({ entries: _entries, ...summary }) => summary),
+    ),
+    findSnapshot: vi.fn(async (_patch: string, version: string) => archived.get(version) ?? null),
+    previousSnapshot: vi.fn(async (_patch: string, version: string) =>
+      version === 'v2' ? (archived.get('v1') ?? null) : null,
+    ),
+    recordMetaShifts: vi.fn(async () => 0),
+    recentMetaShifts: vi.fn(async () => [
+      {
+        patch: '17.9',
+        compId: 'vanguard-zoe',
+        fromTier: 'C',
+        toTier: 'S',
+        fromVersion: 'v1',
+        toVersion: 'v2',
+        detectedAt: '2026-08-14T01:00:00.000Z',
+      },
+    ]),
+  } as unknown as PatchRepository;
+
+  const storedPrefs = new Map<string, unknown[]>();
+  const storedBookmarks = new Map<string, { kind: string; targetId: string }[]>();
+
+  const notifications = {
+    prefsFor: vi.fn(async (puuid: string) => storedPrefs.get(puuid) ?? options.prefs ?? []),
+    replacePrefs: vi.fn(async (puuid: string, prefs: unknown[]) => {
+      storedPrefs.set(puuid, prefs);
+    }),
+    unsubscribeCategory: vi.fn(async () => 1),
+    bookmarksFor: vi.fn(async (puuid: string) => storedBookmarks.get(puuid) ?? []),
+    addBookmark: vi.fn(async (puuid: string, bookmark: { kind: string; targetId: string }) => {
+      const existing = storedBookmarks.get(puuid) ?? [];
+      if (!existing.some((b) => b.kind === bookmark.kind && b.targetId === bookmark.targetId)) {
+        storedBookmarks.set(puuid, [...existing, bookmark]);
+      }
+    }),
+    removeBookmark: vi.fn(async (puuid: string, bookmark: { kind: string; targetId: string }) => {
+      const existing = storedBookmarks.get(puuid) ?? [];
+      const next = existing.filter(
+        (b) => !(b.kind === bookmark.kind && b.targetId === bookmark.targetId),
+      );
+      storedBookmarks.set(puuid, next);
+      return next.length !== existing.length;
+    }),
+    subscribers: vi.fn(async () => []),
+    enqueue: vi.fn(async () => 0),
+    claimPending: vi.fn(async () => []),
+    markSent: vi.fn(async () => undefined),
+    markFailed: vi.fn(async () => undefined),
+  } as unknown as NotificationRepository;
+
   return {
     store,
     context: {
@@ -508,6 +626,8 @@ export function buildTestContext(options: TestContextOptions = {}): {
       auth,
       builder,
       gameData,
+      patches,
+      notifications,
       log: () => undefined,
     },
   };

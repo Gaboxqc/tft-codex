@@ -5,6 +5,7 @@ import { CACHE_KEYS, type Cache } from '../db/redis.js';
 import type { CompMetadata, CompRepository } from '../repositories/comp-repository.js';
 import type { IngestionRepository } from '../repositories/ingestion-repository.js';
 import type { OlapReadRepository } from '../repositories/olap-repository.js';
+import type { PatchRepository } from '../repositories/patch-repository.js';
 import { TierListPublisher, isStale } from './publisher.js';
 
 /** Minimal in-memory Redis covering only get/set with EX. */
@@ -294,5 +295,139 @@ describe('isStale (_Requirements: 1.6_)', () => {
     // data as current.
     expect(isStale(null, 30, now)).toBe(true);
     expect(isStale('not-a-date', 30, now)).toBe(true);
+  });
+});
+
+describe('Snapshot archival (_Requirements: 8.3, 8.4_)', () => {
+  const fakePatches = () =>
+    ({
+      saveSnapshot: vi.fn(async () => undefined),
+      recordMetaShifts: vi.fn(async () => 1),
+    }) as unknown as PatchRepository;
+
+  it('archives the published snapshot with its formula version', async () => {
+    // A historical snapshot has to be readable in the context of the formula
+    // of its day, not today's.
+    const { cache, olap, comps, repository } = setup();
+    const patches = fakePatches();
+
+    await new TierListPublisher({
+      olap,
+      comps,
+      repository,
+      cache,
+      patches,
+      minSampleSize: 200,
+    }).publish('17.9');
+
+    expect(patches.saveSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ patch: '17.9', formulaVersion: '1.0.0' }),
+    );
+  });
+
+  it('records a meta shift against the previous snapshot', async () => {
+    const { cache, store, olap, comps, repository } = setup();
+    const patches = fakePatches();
+
+    const previous: TierList = {
+      patch: '17.9',
+      lastRefreshedAt: '2026-08-14T11:00:00.000Z',
+      stale: false,
+      scoringFormulaVersion: '1.0.0',
+      entries: [
+        {
+          compId: 'strong',
+          name: 'Vanguard Zoe',
+          tier: 'C',
+          trend: 'stable',
+          playstyle: 'Fast 8',
+          difficulty: 'Medium',
+          coreTraits: [],
+          carries: [],
+          compositeScore: 0.1,
+          stats: {
+            avgPlacement: 5,
+            top4Rate: 0.3,
+            winRate: 0.05,
+            playRate: 0.01,
+            sampleSize: 500,
+            computedAt: '2026-08-14T11:00:00.000Z',
+          },
+          metaShift: false,
+        },
+      ],
+    };
+    store.set(CACHE_KEYS.tierListVersion('17.9'), 'prev');
+    store.set(CACHE_KEYS.tierListSnapshot('17.9', 'prev'), JSON.stringify(previous));
+
+    await new TierListPublisher({
+      olap,
+      comps,
+      repository,
+      cache,
+      patches,
+      minSampleSize: 200,
+    }).publish('17.9');
+
+    expect(patches.recordMetaShifts).toHaveBeenCalledWith([
+      expect.objectContaining({ compId: 'strong', fromTier: 'C', toTier: 'S' }),
+    ]);
+  });
+
+  it('records nothing on the very first publish', async () => {
+    // No predecessor means no movement, not movement from nowhere.
+    const { cache, olap, comps, repository } = setup();
+    const patches = fakePatches();
+
+    await new TierListPublisher({
+      olap,
+      comps,
+      repository,
+      cache,
+      patches,
+      minSampleSize: 200,
+    }).publish('17.9');
+
+    expect(patches.recordMetaShifts).not.toHaveBeenCalled();
+  });
+
+  it('still publishes when archiving fails', async () => {
+    // The tier list is already live by this point. Losing one entry of history
+    // is a much smaller problem than a run that reports failure and retries.
+    const { cache, olap, comps, repository } = setup();
+    const patches = {
+      saveSnapshot: vi.fn(async () => {
+        throw new Error('postgres down');
+      }),
+      recordMetaShifts: vi.fn(async () => 0),
+    } as unknown as PatchRepository;
+
+    const snapshot = await new TierListPublisher({
+      olap,
+      comps,
+      repository,
+      cache,
+      patches,
+      minSampleSize: 200,
+    }).publish('17.9');
+
+    expect(snapshot.entries.length).toBeGreaterThan(0);
+    expect(repository.finishRun).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({ status: 'succeeded' }),
+    );
+  });
+
+  it('publishes normally when no archive repository is configured', async () => {
+    const { cache, olap, comps, repository } = setup();
+    const snapshot = await new TierListPublisher({
+      olap,
+      comps,
+      repository,
+      cache,
+      minSampleSize: 200,
+    }).publish('17.9');
+
+    expect(snapshot.entries.length).toBeGreaterThan(0);
   });
 });

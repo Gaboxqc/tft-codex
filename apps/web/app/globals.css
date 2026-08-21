@@ -970,3 +970,90 @@ a:focus-visible {
   line-height: 16px;
   color: var(--tftc-text-secondary);
 }
+
+/* ── Patch history ─────────────────────────────────────────────────────── */
+
+.patch-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tftc-space-2);
+  margin-bottom: var(--tftc-space-6);
+}
+
+.patch-switcher__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tftc-space-2);
+  background: var(--tftc-surface-1);
+  border: 1px solid var(--tftc-surface-2);
+  border-radius: var(--tftc-radius-sm);
+  padding: var(--tftc-space-1) var(--tftc-space-3);
+  font-size: var(--tftc-text-caption-size);
+  font-variant-numeric: tabular-nums;
+  color: var(--tftc-text-secondary);
+  text-decoration: none;
+}
+
+.patch-switcher__item--active {
+  border-color: var(--tftc-cyan-400);
+  color: var(--tftc-text-primary);
+}
+
+.patch-switcher__item:hover {
+  text-decoration: none;
+  background: var(--tftc-surface-2);
+}
+
+/* "live" as a word, not just a colour (design-system.md §7). */
+.patch-switcher__now {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tftc-success);
+}
+
+.shift-list,
+.balance-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tftc-space-2);
+}
+
+.shift-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--tftc-space-3);
+  align-items: baseline;
+  background: var(--tftc-surface-1);
+  border-radius: var(--tftc-radius-sm);
+  padding: var(--tftc-space-2) var(--tftc-space-3);
+  font-size: var(--tftc-text-caption-size);
+}
+
+.shift-list__move {
+  font-variant-numeric: tabular-nums;
+  color: var(--tftc-text-primary);
+}
+
+.shift-list time,
+.balance-list li {
+  color: var(--tftc-text-secondary);
+}
+
+.balance-list li {
+  display: grid;
+  grid-template-columns: minmax(6rem, 12rem) minmax(0, 1fr);
+  gap: var(--tftc-space-3);
+  background: var(--tftc-surface-1);
+  border-radius: var(--tftc-radius-sm);
+  padding: var(--tftc-space-2) var(--tftc-space-3);
+  font-size: var(--tftc-text-caption-size);
+}
+
+.balance-list__entity {
+  color: var(--tftc-text-primary);
+  font-weight: 600;
+}

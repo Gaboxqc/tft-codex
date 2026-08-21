@@ -22,7 +22,9 @@ import {
   trendFor,
   type ScoredComp,
 } from '../domain/tier-scoring.js';
+import { diffSnapshots } from '../domain/snapshot-diff.js';
 import type { CompRepository } from '../repositories/comp-repository.js';
+import type { PatchRepository } from '../repositories/patch-repository.js';
 import type { IngestionRepository } from '../repositories/ingestion-repository.js';
 import type { OlapReadRepository } from '../repositories/olap-repository.js';
 
@@ -32,6 +34,14 @@ export interface PublisherOptions {
   repository: IngestionRepository;
   cache: Cache;
   minSampleSize: number;
+  /**
+   * Durable snapshot archive and meta-shift log (R8.3, R8.4).
+   *
+   * Optional so the publisher still works in a deployment that only serves
+   * the live list — history is additive, and losing it must not stop a
+   * refresh from publishing.
+   */
+  patches?: PatchRepository | undefined;
   /** Snapshots older than this are dropped; keeps Redis from growing forever. */
   snapshotTtlSeconds?: number;
   logger?: (message: string, detail?: unknown) => void;
@@ -44,6 +54,7 @@ export class TierListPublisher {
   readonly #repo: IngestionRepository;
   readonly #cache: Cache;
   readonly #minSampleSize: number;
+  readonly #patches: PatchRepository | undefined;
   readonly #ttl: number;
   readonly #log: (message: string, detail?: unknown) => void;
   readonly #now: () => Date;
@@ -54,6 +65,7 @@ export class TierListPublisher {
     this.#repo = options.repository;
     this.#cache = options.cache;
     this.#minSampleSize = options.minSampleSize;
+    this.#patches = options.patches;
     // Two full refresh cycles' worth of history by default — long enough that
     // a reader mid-request never loses the version it is holding.
     this.#ttl = options.snapshotTtlSeconds ?? 60 * 60 * 24;
@@ -108,6 +120,12 @@ export class TierListPublisher {
 
       const version = `${Date.parse(computedAt)}`;
       await this.#writeThenFlip(patch, version, snapshot);
+
+      // Archive and diff AFTER the live list is serving. History is valuable
+      // but secondary — a failure here must not prevent players seeing the new
+      // tier list, so it is deliberately downstream of the pointer flip and
+      // wrapped separately (R8.3, R8.4).
+      await this.#archive(patch, version, snapshot, previous);
 
       await this.#repo.finishRun(runId, {
         status: 'succeeded',
@@ -172,6 +190,53 @@ export class TierListPublisher {
     );
     await this.#cache.set(CACHE_KEYS.tierListVersion(patch), version);
     await this.#cache.set(CACHE_KEYS.lastPublishedAt, snapshot.lastRefreshedAt);
+  }
+
+  /**
+   * Archives the snapshot and records any meta shifts.
+   *
+   * Swallows its own errors on purpose: the tier list is already live at this
+   * point, and losing one entry of history is a far smaller problem than a
+   * pipeline run that reports failure and gets retried.
+   */
+  async #archive(
+    patch: string,
+    version: string,
+    snapshot: TierList,
+    previous: TierList | null,
+  ): Promise<void> {
+    if (!this.#patches) return;
+
+    try {
+      await this.#patches.saveSnapshot({
+        patch,
+        version,
+        formulaVersion: snapshot.scoringFormulaVersion,
+        entries: snapshot.entries,
+      });
+
+      if (!previous) return;
+
+      const diff = diffSnapshots(previous.entries, snapshot.entries);
+      if (diff.metaShifts.length === 0) return;
+
+      const recorded = await this.#patches.recordMetaShifts(
+        diff.metaShifts.map((shift) => ({
+          patch,
+          compId: shift.compId,
+          fromTier: shift.from,
+          toTier: shift.to,
+          // The versions this shift was measured between, so the record stays
+          // meaningful even after later snapshots land.
+          fromVersion: previous.lastRefreshedAt,
+          toVersion: version,
+        })),
+      );
+
+      this.#log(`publish: ${recorded} meta shift(s) recorded for patch ${patch}`);
+    } catch (error) {
+      this.#log('publish: archiving snapshot history failed (tier list is live regardless)', error);
+    }
   }
 
   async #readCurrent(patch: string): Promise<TierList | null> {

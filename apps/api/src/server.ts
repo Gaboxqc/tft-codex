@@ -19,6 +19,8 @@ import { AuthRepository } from './repositories/auth-repository.js';
 import { BuilderRepository } from './repositories/builder-repository.js';
 import { CompRepository } from './repositories/comp-repository.js';
 import { GameDataRepository } from './repositories/game-data-repository.js';
+import { NotificationRepository } from './repositories/notification-repository.js';
+import { PatchRepository } from './repositories/patch-repository.js';
 import { IngestionRepository } from './repositories/ingestion-repository.js';
 import { OlapReadRepository } from './repositories/olap-repository.js';
 import { PlayerRepository } from './repositories/player-repository.js';
@@ -58,6 +60,8 @@ async function main(): Promise<void> {
       auth: new AuthRepository(db),
       builder: new BuilderRepository(db),
       gameData: new GameDataRepository(db),
+      patches: new PatchRepository(db),
+      notifications: new NotificationRepository(db),
       // Shares the Redis token bucket with the crawler, so request-time
       // lookups draw from the same budget rather than a second one Riot has
       // no idea about (R12.2).
