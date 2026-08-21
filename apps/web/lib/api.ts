@@ -348,6 +348,62 @@ async function postJson<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   }
 }
 
+// ── Patch history (R8) ──────────────────────────────────────────────────────
+
+export interface PatchView {
+  id: string;
+  setNumber: number;
+  setName: string;
+  releaseDate: string;
+  isCurrentPatch: boolean;
+  archived: boolean;
+  balanceChanges: { entityType: string; entityId: string; summary: string }[];
+  metaImpactSummary: string | null;
+  metaImpactSummaryStatus?: 'published' | 'awaiting-review';
+}
+
+export interface SnapshotSummaryView {
+  version: string;
+  patch: string;
+  formulaVersion: string;
+  publishedAt: string;
+  compCount: number;
+}
+
+export interface MetaShiftView {
+  patch: string;
+  compId: string;
+  fromTier: string;
+  toTier: string;
+  detectedAt: string;
+}
+
+export function getPatches(): Promise<ApiResult<{ patches: PatchView[] }>> {
+  return getJson<{ patches: PatchView[] }>('/v1/patches', { revalidate: 300 });
+}
+
+export function getLatestPatch(): Promise<ApiResult<PatchView>> {
+  return getJson<PatchView>('/v1/patches/latest', { revalidate: 300 });
+}
+
+export function getSnapshots(
+  patch: string,
+): Promise<ApiResult<{ patch: string; snapshots: SnapshotSummaryView[] }>> {
+  return getJson<{ patch: string; snapshots: SnapshotSummaryView[] }>(
+    `/v1/patches/${encodeURIComponent(patch)}/snapshots`,
+    { revalidate: 120 },
+  );
+}
+
+export function getMetaShifts(
+  patch: string,
+): Promise<ApiResult<{ patch: string; shifts: MetaShiftView[] }>> {
+  return getJson<{ patch: string; shifts: MetaShiftView[] }>(
+    `/v1/patches/${encodeURIComponent(patch)}/meta-shifts`,
+    { revalidate: 120 },
+  );
+}
+
 export function getBreakpoints(patch?: string): Promise<ApiResult<BreakpointReference>> {
   const query = patch ? `?patch=${encodeURIComponent(patch)}` : '';
   return getJson<BreakpointReference>(`/v1/reference/breakpoints${query}`, {
