@@ -1057,3 +1057,113 @@ a:focus-visible {
   color: var(--tftc-text-primary);
   font-weight: 600;
 }
+
+/*
+ * Bookmark toggle (task 6.7).
+ *
+ * The signed-out variant is styled as a link, not a button, because that is
+ * what it is — it navigates to Riot sign-on rather than changing anything.
+ */
+.bookmark-btn__wrap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--tftc-space-2);
+}
+
+.bookmark-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tftc-space-1);
+  padding: var(--tftc-space-2) var(--tftc-space-3);
+  border: 1px solid var(--tftc-surface-2);
+  border-radius: var(--tftc-radius-sm);
+  background: var(--tftc-surface-1);
+  color: var(--tftc-text-primary);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.bookmark-btn:hover:not(:disabled) {
+  background: var(--tftc-surface-2);
+}
+
+/* Followed state carries a border and a filled star, not colour alone. */
+.bookmark-btn--on {
+  border-color: var(--tftc-cyan-400);
+  color: var(--tftc-cyan-300);
+}
+
+.bookmark-btn--small {
+  padding: var(--tftc-space-1) var(--tftc-space-2);
+  font-size: var(--tftc-text-caption-size);
+}
+
+.bookmark-btn--loading {
+  color: var(--tftc-text-disabled);
+  cursor: default;
+}
+
+.bookmark-btn:disabled {
+  cursor: not-allowed;
+  color: var(--tftc-text-disabled);
+}
+
+.bookmark-btn__status {
+  color: var(--tftc-text-secondary);
+  font-size: var(--tftc-text-caption-size);
+}
+
+.comp-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tftc-space-3);
+}
+
+/* Notification preferences (task 6.5). */
+.tftc-btn--compact {
+  padding: var(--tftc-space-1) var(--tftc-space-2);
+  font-size: var(--tftc-text-caption-size);
+}
+
+.prefs-table__note {
+  display: block;
+  color: var(--tftc-text-secondary);
+  font-size: var(--tftc-text-caption-size);
+  font-weight: 400;
+}
+
+.prefs-table__switch {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.prefs-table__switch input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--tftc-cyan-400);
+  cursor: pointer;
+}
+
+.bookmark-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tftc-space-2);
+}
+
+.bookmark-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--tftc-space-3);
+  align-items: center;
+  background: var(--tftc-surface-1);
+  border-radius: var(--tftc-radius-sm);
+  padding: var(--tftc-space-2) var(--tftc-space-3);
+}
+
+.bookmark-list__kind {
+  color: var(--tftc-text-secondary);
+  font-size: var(--tftc-text-caption-size);
+}

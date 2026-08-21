@@ -181,8 +181,9 @@ Each task is meant to be small enough to implement and test in one sitting, and 
 
 ## Phase 4 — Comp Builder / Sandbox
 
-- [ ] 4.1 Build the board editor UI: hex-grid placement (or simplified front/back rows if full hex geometry is deferred), champion picker, item assignment per unit
+- [x] 4.1 Build the board editor UI: hex-grid placement (or simplified front/back rows if full hex geometry is deferred), champion picker, item assignment per unit
   - _Requirements: 6.1_
+  - _Front/back rows rather than a hex grid, which the task text allows. Hex placement matters for positioning — which unit an assassin jumps to — and this builder does not simulate a fight, so a hex grid would imply a precision the rest of the tool cannot honour._
 - [x] 4.2 Build live trait-count computation as the board changes, including "one unit away from next breakpoint" highlighting
   - _Requirements: 6.2_
   - _A champion counts once per trait however many copies are on the board, and emblems fall out of the same Set-keyed-by-champion mechanism rather than needing a special case. Sub-breakpoint traits stay in the panel marked inactive — "3 Vanguard, one more unlocks it" is the most useful thing it says._
@@ -271,9 +272,12 @@ Each task is meant to be small enough to implement and test in one sitting, and 
 - [ ] 6.6 Implement email delivery (transactional email provider), web push delivery, and Overwolf native notification delivery for: patch summaries, bookmarked-comp tier changes, bookmarked-champion balance changes
   - _Requirements: 9.1, 9.2_
   - _**Outbox and message-building are done; no delivery adapter is written.** Which transactional email provider is a vendor decision (and a cost), web push needs VAPID keys, and Overwolf-native delivery is Phase 5. The outbox means adding an adapter later is a worker, not a refactor._
-- [ ] 6.7 Build the bookmarking UI on comps and champions, on both web and the Overwolf app
+- [x] 6.7 Build the bookmarking UI on comps and champions, on both web and the Overwolf app
   - _Requirements: 9.1_
-  - _API is done and tested (`GET/POST/DELETE /v1/bookmarks`). The web UI is not built; the Overwolf half is Phase 5._
+  - _**Web only; the Overwolf half is Phase 5 and stays blocked.** Follow buttons on the comp itself and on every unit in it, plus `/me/notifications` for the preference grid, R9.4's one-click "stop all", and the followed list._
+  - _Bookmark state is fetched in the browser rather than read from the session in the server component: the comp page is public and cacheable (R7.4), and colouring a star would otherwise opt every comp page into per-request rendering. The 401 doubles as the signed-out answer, since the session cookie is httpOnly._
+  - _Signed out, the control is a sign-in link and not a toggle — a button that looks live and then fails is worse than one that says what it needs._
+  - _The settings page says outright that no delivery is switched on yet (6.6). A preferences screen implying mail is going out when none is would be the wrong kind of surprise in both directions._
 - [ ] 6.8 (Optional/social) Build opt-in friends list and a comparison leaderboard using linked accounts
   - _Requirements: 7.1 (reused)_
   - _Explicitly optional in the spec. Not started — and worth a real decision rather than a default, since it is the one feature here that shares one player's data with another._

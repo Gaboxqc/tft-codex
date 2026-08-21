@@ -450,3 +450,125 @@ export async function postRecommendation(body: {
     };
   }
 }
+
+// ── Bookmarks and notification preferences (R9) ─────────────────────────────
+
+export interface BookmarkView {
+  kind: 'comp' | 'champion';
+  targetId: string;
+}
+
+export type NotificationChannel = 'email' | 'webpush' | 'overwolf-native';
+export type NotificationCategory = 'patch' | 'bookmarkedComp' | 'bookmarkedChampion';
+
+export interface NotificationPrefView {
+  channel: NotificationChannel;
+  category: NotificationCategory;
+  enabled: boolean;
+}
+
+export interface NotificationPrefsView {
+  prefs: NotificationPrefView[];
+  /** Surfaced by the API so a settings screen can say so, rather than infer it. */
+  fullyUnsubscribed: boolean;
+}
+
+/**
+ * Bookmarks for the signed-in player.
+ *
+ * Server-side, with an explicitly forwarded cookie: the list is per-user, so
+ * it must never land in a shared cache.
+ */
+export function getBookmarks(cookie: string): Promise<ApiResult<{ bookmarks: BookmarkView[] }>> {
+  return getJson<{ bookmarks: BookmarkView[] }>('/v1/bookmarks', { cookie });
+}
+
+export function getNotificationPrefs(cookie: string): Promise<ApiResult<NotificationPrefsView>> {
+  return getJson<NotificationPrefsView>('/v1/notifications/prefs', { cookie });
+}
+
+/**
+ * Bookmarks for the browser.
+ *
+ * Distinct from `getBookmarks` on purpose: that one forwards a cookie from a
+ * server component for a page that is per-user anyway, while this one lets a
+ * cacheable public page stay cacheable and fetch the personal layer after.
+ * A 401 here is the signed-out answer, not a failure.
+ */
+export function getMyBookmarks(): Promise<ApiResult<{ bookmarks: BookmarkView[] }>> {
+  return sendJson<{ bookmarks: BookmarkView[] }>('GET', '/v1/bookmarks', undefined);
+}
+
+/** Browser-side toggle. The session cookie is httpOnly, so `credentials` carries it. */
+export function addBookmark(bookmark: BookmarkView): Promise<ApiResult<BookmarkView>> {
+  return sendJson<BookmarkView>('POST', '/v1/bookmarks', bookmark);
+}
+
+export function removeBookmark(bookmark: BookmarkView): Promise<ApiResult<{ removed: boolean }>> {
+  return sendJson<{ removed: boolean }>('DELETE', '/v1/bookmarks', bookmark);
+}
+
+export function putNotificationPrefs(
+  prefs: NotificationPrefView[],
+): Promise<ApiResult<{ prefs: NotificationPrefView[] }>> {
+  return sendJson<{ prefs: NotificationPrefView[] }>('PUT', '/v1/notifications/prefs', { prefs });
+}
+
+/**
+ * R9.4 — one action to stop a whole category.
+ *
+ * Its own call rather than a full preferences payload, because the caller here
+ * is a person clicking "stop sending me this" and the client must not have to
+ * know their other settings to honour it.
+ */
+export function unsubscribeCategory(
+  category: NotificationCategory,
+): Promise<ApiResult<{ category: NotificationCategory; disabled: number }>> {
+  return sendJson<{ category: NotificationCategory; disabled: number }>(
+    'DELETE',
+    `/v1/notifications/prefs/${encodeURIComponent(category)}`,
+    undefined,
+  );
+}
+
+/**
+ * Shared mutation helper for the browser.
+ *
+ * Separate from `postJson` only because that one names the builder service in
+ * its failure text, and a bookmark toggle reporting a builder error would send
+ * someone looking in the wrong place.
+ */
+async function sendJson<T>(
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  body: unknown,
+): Promise<ApiResult<T>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      credentials: 'include',
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        reason: response.status === 401 ? 'unauthenticated' : 'unavailable',
+        detail:
+          response.status === 401
+            ? 'Sign in to change this.'
+            : `That did not save — the server returned ${response.status}.`,
+      };
+    }
+
+    return { ok: true, data: (await response.json()) as T };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: 'unavailable',
+      detail: error instanceof Error ? error.message : 'Could not reach the server.',
+    };
+  }
+}
