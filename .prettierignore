@@ -11,3 +11,7 @@ package-lock.json
 # read constantly. Leave them exactly as written.
 docs/
 
+
+# Prettier has no SQL parser. Migrations are hand-formatted, and the
+# comments in them document compliance decisions worth reading as written.
+*.sql
