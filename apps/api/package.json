@@ -13,9 +13,11 @@
     "test:compliance": "vitest run src/compliance",
     "migrate": "tsx src/db/migrate.ts",
     "crawl": "tsx src/ingestion/run-crawl.ts",
-    "aggregate": "tsx src/ingestion/run-aggregate.ts"
+    "aggregate": "tsx src/ingestion/run-aggregate.ts",
+    "patch-notes": "tsx src/ingestion/run-patch-notes.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@clickhouse/client": "^1.12.1",
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.0.1",

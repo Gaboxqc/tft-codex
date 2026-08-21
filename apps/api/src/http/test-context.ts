@@ -46,6 +46,10 @@ export const testConfig = (overrides: Partial<AppConfig> = {}): AppConfig => ({
   rso: { clientId: 'test', clientSecret: 'secret', redirectUri: 'http://localhost:4000/cb' },
   privacy: { profileRetentionDays: 30 },
   compliance: { tier3RecommendationsConfirmed: false, tier3ConfirmationRef: null },
+  // Editorial routes are off unless a test opts in, mirroring production
+  // defaults: the guard is closed by default and has to be opened on purpose.
+  editorialToken: null,
+  drafter: null,
   ...overrides,
 });
 
@@ -207,6 +211,14 @@ export interface TestContextOptions {
   matches?: MatchSummary[];
   /** R8.2 — null means the draft summary is still awaiting review. */
   metaImpactSummary?: string | null;
+  /** Pending, unapproved draft (R8.2). */
+  metaSummaryDraft?: string | null;
+  balanceChanges?: {
+    entityType: 'champion' | 'trait' | 'item' | 'augment';
+    entityId: string;
+    summary: string;
+    source: 'data-dragon' | 'editorial';
+  }[];
   prefs?: { channel: string; category: string; enabled: boolean }[];
 }
 
@@ -546,7 +558,20 @@ export function buildTestContext(options: TestContextOptions = {}): {
         metaImpactSummary: options.metaImpactSummary ?? null,
       },
     ]),
-    findById: vi.fn(async () => null),
+    findById: vi.fn(async (id: string) =>
+      id === '17.9'
+        ? {
+            id: '17.9',
+            setNumber: 17,
+            setName: 'Into the Arcane',
+            releaseDate: '2026-07-30',
+            isCurrentPatch: true,
+            archived: false,
+            balanceChanges: options.balanceChanges ?? [],
+            metaImpactSummary: options.metaImpactSummary ?? null,
+          }
+        : null,
+    ),
     latest: vi.fn(async () => ({
       id: '17.9',
       setNumber: 17,
@@ -558,6 +583,22 @@ export function buildTestContext(options: TestContextOptions = {}): {
       metaImpactSummary: options.metaImpactSummary ?? null,
     })),
     approveMetaSummary: vi.fn(async () => undefined),
+    approveMetaSummaryAs: vi.fn(async () => undefined),
+    saveBalanceChanges: vi.fn(async () => undefined),
+    dataDragonVersion: vi.fn(async () => '16.16.1'),
+    saveMetaSummaryDraft: vi.fn(async () => undefined),
+    discardMetaSummaryDraft: vi.fn(async () => undefined),
+    metaSummaryReview: vi.fn(async (id: string) =>
+      id === '17.9'
+        ? {
+            draft: options.metaSummaryDraft ?? null,
+            draftedAt: options.metaSummaryDraft ? '2026-08-21T00:00:00.000Z' : null,
+            published: options.metaImpactSummary ?? null,
+            approvedBy: null,
+            approvedAt: null,
+          }
+        : null,
+    ),
     saveSnapshot: vi.fn(async () => undefined),
     listSnapshots: vi.fn(async () =>
       [...archived.values()].map(({ entries: _entries, ...summary }) => summary),

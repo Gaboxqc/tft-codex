@@ -70,6 +70,31 @@ const EnvSchema = z.object({
   RIOT_TIER3_RECOMMENDATIONS_CONFIRMED: booleanish,
   /** Reference to the written confirmation, for the audit trail. */
   RIOT_TIER3_CONFIRMATION_REF: z.string().optional(),
+
+  /**
+   * Shared secret for the editorial routes (tasks 6.1, 6.2, 2.11).
+   *
+   * Deliberately not RSO: an editor is a member of staff, not a linked Riot
+   * account, and coupling internal write access to a player session would mean
+   * every approval path ran through the same token a game client holds.
+   *
+   * A shared token is a stopgap and is treated as one — optional, so the API
+   * boots without it, and every editorial route 503s while it is unset rather
+   * than falling open. Proper per-user roles are the eventual answer; this is
+   * enough for a pre-launch team of one.
+   */
+  EDITORIAL_API_TOKEN: z
+    .string()
+    .min(24, 'EDITORIAL_API_TOKEN must be at least 24 characters')
+    .optional(),
+
+  /**
+   * Drafts the per-patch meta summary (task 6.2). Optional — without it the
+   * drafting step no-ops and the summary simply stays unwritten, which the
+   * patch page already renders as "still being reviewed".
+   */
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().default('claude-opus-5'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -108,6 +133,10 @@ export interface AppConfig {
     tier3RecommendationsConfirmed: boolean;
     tier3ConfirmationRef: string | null;
   };
+  /** null until an editorial token is configured — the routes 503 until then. */
+  editorialToken: string | null;
+  /** null when no model credentials exist — summary drafting then no-ops. */
+  drafter: { apiKey: string; model: string } | null;
 }
 
 export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -163,6 +192,10 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       tier3RecommendationsConfirmed: env.RIOT_TIER3_RECOMMENDATIONS_CONFIRMED,
       tier3ConfirmationRef: env.RIOT_TIER3_CONFIRMATION_REF ?? null,
     },
+    editorialToken: env.EDITORIAL_API_TOKEN ?? null,
+    drafter: env.ANTHROPIC_API_KEY
+      ? { apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL }
+      : null,
   };
 
   assertTier3GateIsDefensible(config);
