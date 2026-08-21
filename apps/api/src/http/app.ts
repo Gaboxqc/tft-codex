@@ -17,6 +17,7 @@ import { registerAuthRoutes } from './routes/auth.js';
 import { registerBuilderRoutes } from './routes/builder.js';
 import { registerCompRoutes } from './routes/comps.js';
 import { registerMetaRoutes } from './routes/meta.js';
+import { registerPatchRoutes } from './routes/patches.js';
 import { registerPlayerRoutes } from './routes/players.js';
 import { registerRecommendationRoutes } from './routes/recommendations.js';
 import { registerReferenceRoutes } from './routes/reference.js';
@@ -68,6 +69,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await registerAuthRoutes(app, context);
   await registerPlayerRoutes(app, context);
   await registerBuilderRoutes(app, context);
+  await registerPatchRoutes(app, context);
 
   app.setNotFoundHandler(async (request, reply) =>
     reply.status(404).send({ error: 'not_found', detail: `No route for ${request.url}` }),
