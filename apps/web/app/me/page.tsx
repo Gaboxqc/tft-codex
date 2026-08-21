@@ -59,6 +59,11 @@ export default async function DashboardPage() {
             ? `Last synced ${new Date(profile.data.lastSyncedAt).toUTCString()}.`
             : 'Your matches are syncing — check back shortly.'}
         </p>
+        <p className="comp-detail__actions">
+          <Link className="tftc-btn tftc-btn--secondary" href="/me/notifications">
+            Notifications and follows
+          </Link>
+        </p>
       </header>
 
       {analytics.ok && analytics.data.totalGames > 0 && (

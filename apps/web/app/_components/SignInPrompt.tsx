@@ -10,7 +10,7 @@
  *
  * _Requirements: 7.1, 7.2, 7.4_
  */
-import { signInHref } from '@/lib/session';
+import { signInHref } from '@/lib/sign-in';
 
 export interface SignInPromptProps {
   /** Where to return after linking. */

@@ -19,6 +19,7 @@ import { TierBadge, TrendIndicator } from '@tft-codex/ui';
 
 import { getComp } from '@/lib/api';
 import { AugmentAdvisor } from '../../_components/AugmentAdvisor';
+import { BookmarkButton } from '../../_components/BookmarkButton';
 
 interface CompPageProps {
   params: Promise<{ id: string }>;
@@ -65,6 +66,8 @@ export default async function CompPage({ params }: CompPageProps) {
   const comp = result.data;
   const provisional = comp.tier === 'provisional';
 
+  const here = `/comps/${comp.id}`;
+
   return (
     <article className="comp-detail">
       <header className="comp-detail__head">
@@ -80,11 +83,13 @@ export default async function CompPage({ params }: CompPageProps) {
           {comp.playstyle} · {comp.difficulty} · patch {comp.patch}
           {comp.altName ? ` · also called "${comp.altName}"` : ''}
         </p>
-        {/* R6.5 — start from the real thing rather than retyping it. */}
-        <p>
+        <p className="comp-detail__actions">
+          {/* R6.5 — start from the real thing rather than retyping it. */}
           <Link className="tftc-btn tftc-btn--secondary" href={`/builder?import=${comp.id}`}>
             Import into builder
           </Link>
+          {/* R9.2 — following the comp is what makes its tier changes reach you. */}
+          <BookmarkButton kind="comp" targetId={comp.id} label={comp.name} redirectTo={here} />
         </p>
       </header>
 
@@ -139,6 +144,9 @@ export default async function CompPage({ params }: CompPageProps) {
               <th scope="col">Role</th>
               <th scope="col">Target</th>
               <th scope="col">Items (priority order)</th>
+              {/* R9.3 — following a champion is per-champion, not per-comp:
+                  a balance change lands on the unit, wherever it is played. */}
+              <th scope="col">Follow</th>
             </tr>
           </thead>
           <tbody>
@@ -148,6 +156,15 @@ export default async function CompPage({ params }: CompPageProps) {
                 <td>{unit.role}</td>
                 <td>{'★'.repeat(unit.starTarget)}</td>
                 <td>{unit.items.map(shortId).join(' · ') || '—'}</td>
+                <td>
+                  <BookmarkButton
+                    kind="champion"
+                    targetId={unit.championId}
+                    label={shortId(unit.championId)}
+                    redirectTo={here}
+                    small
+                  />
+                </td>
               </tr>
             ))}
           </tbody>

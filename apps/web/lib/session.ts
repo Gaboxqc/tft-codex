@@ -23,9 +23,3 @@ export async function sessionCookie(): Promise<string | null> {
 export async function isSignedIn(): Promise<boolean> {
   return (await sessionCookie()) !== null;
 }
-
-/** Where to send someone to link their Riot account. */
-export function signInHref(redirectTo = '/'): string {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
-  return `${base}/v1/auth/riot/start?redirect_to=${encodeURIComponent(redirectTo)}`;
-}
