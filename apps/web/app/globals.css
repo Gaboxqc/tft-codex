@@ -1167,3 +1167,58 @@ a:focus-visible {
   color: var(--tftc-text-secondary);
   font-size: var(--tftc-text-caption-size);
 }
+
+/* Delivery setup (task 6.6). */
+.delivery-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--tftc-space-4);
+  align-items: start;
+  padding: var(--tftc-space-3) 0;
+  border-top: 1px solid var(--tftc-surface-2);
+}
+
+.delivery-row h3 {
+  font-size: var(--tftc-text-body-size);
+  margin: 0 0 var(--tftc-space-1);
+}
+
+.delivery-row__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tftc-space-2);
+  align-items: center;
+}
+
+.delivery-row__ok {
+  color: var(--tftc-text-secondary);
+  font-size: var(--tftc-text-caption-size);
+}
+
+.tftc-input {
+  flex: 1 1 14rem;
+  min-width: 0;
+  padding: var(--tftc-space-2) var(--tftc-space-3);
+  border: 1px solid var(--tftc-surface-2);
+  border-radius: var(--tftc-radius-sm);
+  background: var(--tftc-surface-1);
+  color: var(--tftc-text-primary);
+  font: inherit;
+}
+
+.tftc-input:focus-visible {
+  outline: 2px solid var(--tftc-cyan-400);
+  outline-offset: 1px;
+}
+
+@media (max-width: 640px) {
+  .delivery-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Friends leaderboard (task 6.8). The viewer's own row, marked by more than colour. */
+.leaderboard__you {
+  background: var(--tftc-surface-1);
+  outline: 1px solid var(--tftc-cyan-400);
+}

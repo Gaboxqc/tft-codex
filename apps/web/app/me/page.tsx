@@ -63,6 +63,9 @@ export default async function DashboardPage() {
           <Link className="tftc-btn tftc-btn--secondary" href="/me/notifications">
             Notifications and follows
           </Link>
+          <Link className="tftc-btn tftc-btn--secondary" href="/me/friends">
+            Friends
+          </Link>
         </p>
       </header>
 

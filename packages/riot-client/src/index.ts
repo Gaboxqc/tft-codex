@@ -8,6 +8,8 @@ export * from './errors.js';
 export * from './routing.js';
 export * from './dto.js';
 export * from './riot-api-client.js';
+// Riot's static-data CDN. No API key, no rate limiting — see the module comment.
+export * from './data-dragon-client.js';
 export * from './rate-limit/types.js';
 export * from './rate-limit/bucket-math.js';
 export { MemoryRateLimiter } from './rate-limit/memory-token-bucket.js';

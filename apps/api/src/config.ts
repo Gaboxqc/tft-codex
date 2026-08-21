@@ -37,6 +37,14 @@ const EnvSchema = z.object({
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   /** Where to send the browser after an RSO round trip. */
   WEB_BASE_URL: z.string().default('http://localhost:3000'),
+  /**
+   * This API's own publicly reachable base URL.
+   *
+   * Needed because some links we generate are clicked from outside the browser
+   * session entirely — the email verification link lands on an API route, not
+   * a web page, so it cannot be built from WEB_BASE_URL.
+   */
+  API_PUBLIC_URL: z.string().default('http://localhost:4000'),
 
   // RSO credentials, issued once Riot approves the third-party application
   // (docs/approvals.md). Optional so the rest of the API boots without them —
@@ -70,6 +78,47 @@ const EnvSchema = z.object({
   RIOT_TIER3_RECOMMENDATIONS_CONFIRMED: booleanish,
   /** Reference to the written confirmation, for the audit trail. */
   RIOT_TIER3_CONFIRMATION_REF: z.string().optional(),
+
+  /**
+   * Shared secret for the editorial routes (tasks 6.1, 6.2, 2.11).
+   *
+   * Deliberately not RSO: an editor is a member of staff, not a linked Riot
+   * account, and coupling internal write access to a player session would mean
+   * every approval path ran through the same token a game client holds.
+   *
+   * A shared token is a stopgap and is treated as one — optional, so the API
+   * boots without it, and every editorial route 503s while it is unset rather
+   * than falling open. Proper per-user roles are the eventual answer; this is
+   * enough for a pre-launch team of one.
+   */
+  EDITORIAL_API_TOKEN: z
+    .string()
+    .min(24, 'EDITORIAL_API_TOKEN must be at least 24 characters')
+    .optional(),
+
+  /**
+   * Drafts the per-patch meta summary (task 6.2). Optional — without it the
+   * drafting step no-ops and the summary simply stays unwritten, which the
+   * patch page already renders as "still being reviewed".
+   */
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().default('claude-opus-5'),
+
+  // ── Notification delivery (task 6.6) ──────────────────────────────────────
+  //
+  // Each channel is independently optional. A channel with no credentials has
+  // no adapter, and the worker leaves its messages pending rather than failing
+  // them — the message is fine, the deployment just cannot deliver it yet.
+
+  /** Self-generated, free: `npx web-push generate-vapid-keys`. */
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  /** `mailto:` or https, per the VAPID spec — push services require a contact. */
+  VAPID_SUBJECT: z.string().default('mailto:notifications@tftcodex.local'),
+
+  RESEND_API_KEY: z.string().optional(),
+  /** Verified sending identity, e.g. `TFT Codex <notifications@example.com>`. */
+  EMAIL_FROM: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -101,12 +150,24 @@ export interface AppConfig {
   /** Signs session JWTs. */
   jwtSecret: string;
   webBaseUrl: string;
+  /** This API's own public base URL, for links clicked outside the browser. */
+  apiPublicUrl: string;
   /** null until Riot issues RSO credentials — linking 503s in the meantime. */
   rso: { clientId: string; clientSecret: string; redirectUri: string } | null;
   privacy: { profileRetentionDays: number };
   compliance: {
     tier3RecommendationsConfirmed: boolean;
     tier3ConfirmationRef: string | null;
+  };
+  /** null until an editorial token is configured — the routes 503 until then. */
+  editorialToken: string | null;
+  /** null when no model credentials exist — summary drafting then no-ops. */
+  drafter: { apiKey: string; model: string } | null;
+  delivery: {
+    /** null without VAPID keys. Generating them is free and local. */
+    webPush: { publicKey: string; privateKey: string; subject: string } | null;
+    /** null without a provider key and a verified sending identity. */
+    email: { apiKey: string; from: string } | null;
   };
 }
 
@@ -148,6 +209,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     jwtSecret: env.JWT_SECRET,
     webBaseUrl: env.WEB_BASE_URL.replace(/\/+$/, ''),
+    apiPublicUrl: env.API_PUBLIC_URL.replace(/\/+$/, ''),
     // All three or none. A half-configured OAuth client fails at the redirect
     // with an opaque Riot error; failing here says which piece is missing.
     rso:
@@ -162,6 +224,28 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     compliance: {
       tier3RecommendationsConfirmed: env.RIOT_TIER3_RECOMMENDATIONS_CONFIRMED,
       tier3ConfirmationRef: env.RIOT_TIER3_CONFIRMATION_REF ?? null,
+    },
+    editorialToken: env.EDITORIAL_API_TOKEN ?? null,
+    drafter: env.ANTHROPIC_API_KEY
+      ? { apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL }
+      : null,
+    delivery: {
+      // Both keys or neither: half a VAPID pair fails at send time with an
+      // opaque crypto error, which is a bad way to learn about a typo.
+      webPush:
+        env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY
+          ? {
+              publicKey: env.VAPID_PUBLIC_KEY,
+              privateKey: env.VAPID_PRIVATE_KEY,
+              subject: env.VAPID_SUBJECT,
+            }
+          : null,
+      // Likewise: a key without a verified From is rejected by the provider on
+      // every send rather than at boot.
+      email:
+        env.RESEND_API_KEY && env.EMAIL_FROM
+          ? { apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM }
+          : null,
     },
   };
 

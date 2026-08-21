@@ -7,7 +7,7 @@
  *
  * _Requirements: 1.8, 8.1, 8.3, 8.4_
  */
-import type { PatchVersion, TierListEntry } from '@tft-codex/shared-types';
+import type { BalanceChange, PatchVersion, TierListEntry } from '@tft-codex/shared-types';
 
 import type { Database } from '../db/postgres.js';
 
@@ -94,6 +94,118 @@ export class PatchRepository {
       patchId,
       summary,
     ]);
+  }
+
+  // ── Balance changes and the summary draft (tasks 6.1, 6.2) ───────────────
+
+  /**
+   * Replaces a patch's balance changes and records the version they came from.
+   *
+   * Whole-array replacement is safe here only because the caller has already
+   * merged the editorial records back in (`mergeBalanceChanges`). Writing a
+   * bare diff through this method would delete every hand-written record on
+   * the patch, which is the one failure mode task 6.1 has to avoid.
+   */
+  async saveBalanceChanges(
+    patchId: string,
+    changes: readonly BalanceChange[],
+    dataDragonVersion: string,
+  ): Promise<void> {
+    await this.db.query(
+      `UPDATE patches
+          SET balance_changes = $2::jsonb,
+              data_dragon_version = $3
+        WHERE id = $1`,
+      [patchId, JSON.stringify(changes), dataDragonVersion],
+    );
+  }
+
+  /** The Data Dragon version a patch was last diffed against, if any. */
+  async dataDragonVersion(patchId: string): Promise<string | null> {
+    const { rows } = await this.db.query<{ data_dragon_version: string | null }>(
+      'SELECT data_dragon_version FROM patches WHERE id = $1',
+      [patchId],
+    );
+    return rows[0]?.data_dragon_version ?? null;
+  }
+
+  /**
+   * Stores an unapproved draft (R8.2).
+   *
+   * Writes `meta_impact_draft`, never `meta_impact_summary`. Publishing is a
+   * separate, human action — see `approveMetaSummary`.
+   */
+  async saveMetaSummaryDraft(patchId: string, draft: string): Promise<void> {
+    await this.db.query(
+      `UPDATE patches
+          SET meta_impact_draft = $2,
+              meta_impact_drafted_at = now()
+        WHERE id = $1`,
+      [patchId, draft],
+    );
+  }
+
+  /** Drops a draft an editor has decided against, leaving anything published alone. */
+  async discardMetaSummaryDraft(patchId: string): Promise<void> {
+    await this.db.query(
+      `UPDATE patches
+          SET meta_impact_draft = NULL,
+              meta_impact_drafted_at = NULL
+        WHERE id = $1`,
+      [patchId],
+    );
+  }
+
+  /** The pending draft and whatever is already published, for a review screen. */
+  async metaSummaryReview(patchId: string): Promise<{
+    draft: string | null;
+    draftedAt: string | null;
+    published: string | null;
+    approvedBy: string | null;
+    approvedAt: string | null;
+  } | null> {
+    const { rows } = await this.db.query<{
+      meta_impact_draft: string | null;
+      meta_impact_drafted_at: Date | null;
+      meta_impact_summary: string | null;
+      meta_impact_approved_by: string | null;
+      meta_impact_approved_at: Date | null;
+    }>(
+      `SELECT meta_impact_draft, meta_impact_drafted_at, meta_impact_summary,
+              meta_impact_approved_by, meta_impact_approved_at
+         FROM patches WHERE id = $1`,
+      [patchId],
+    );
+
+    const row = rows[0];
+    if (!row) return null;
+
+    return {
+      draft: row.meta_impact_draft,
+      draftedAt: row.meta_impact_drafted_at?.toISOString() ?? null,
+      published: row.meta_impact_summary,
+      approvedBy: row.meta_impact_approved_by,
+      approvedAt: row.meta_impact_approved_at?.toISOString() ?? null,
+    };
+  }
+
+  /**
+   * Publishes a draft under a named approver (R8.2).
+   *
+   * The approved text is passed in rather than copied from the draft column so
+   * an editor can correct it on the way through — which is most of what
+   * reviewing an AI draft consists of. The name is required by the signature:
+   * an approval nobody is accountable for is a rubber stamp.
+   */
+  async approveMetaSummaryAs(patchId: string, summary: string, approvedBy: string): Promise<void> {
+    await this.db.query(
+      `UPDATE patches
+          SET meta_impact_summary = $2,
+              meta_impact_approved_by = $3,
+              meta_impact_approved_at = now()
+        WHERE id = $1`,
+      [patchId, summary, approvedBy],
+    );
   }
 
   // ── Snapshots (R8.4) ─────────────────────────────────────────────────────

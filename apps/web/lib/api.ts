@@ -572,3 +572,114 @@ async function sendJson<T>(
     };
   }
 }
+
+// ── Notification delivery setup (task 6.6) ──────────────────────────────────
+
+export interface DeliveryStatusView {
+  email: string | null;
+  emailVerified: boolean;
+  pushSubscriptions: number;
+  /** Public by design; the private half never leaves the server. */
+  vapidPublicKey: string | null;
+  /** Which channels this deployment can actually deliver on. */
+  channels: Record<NotificationChannel, boolean>;
+}
+
+export function getDeliveryStatus(cookie: string): Promise<ApiResult<DeliveryStatusView>> {
+  return getJson<DeliveryStatusView>('/v1/notifications/delivery', { cookie });
+}
+
+/** Browser-side: the subscription object comes from the push manager. */
+export function registerPushSubscription(subscription: {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}): Promise<ApiResult<{ subscribed: boolean }>> {
+  return sendJson<{ subscribed: boolean }>('POST', '/v1/notifications/push', subscription);
+}
+
+export function unregisterPushSubscription(
+  endpoint: string,
+): Promise<ApiResult<{ removed: boolean }>> {
+  return sendJson<{ removed: boolean }>('DELETE', '/v1/notifications/push', { endpoint });
+}
+
+export function setNotificationEmail(
+  email: string,
+): Promise<ApiResult<{ email: string; verified: boolean; verificationSent: boolean }>> {
+  return sendJson<{ email: string; verified: boolean; verificationSent: boolean }>(
+    'PUT',
+    '/v1/notifications/email',
+    { email },
+  );
+}
+
+export function clearNotificationEmail(): Promise<ApiResult<{ cleared: boolean }>> {
+  return sendJson<{ cleared: boolean }>('DELETE', '/v1/notifications/email', undefined);
+}
+
+// ── Friends and the comparison leaderboard (task 6.8) ───────────────────────
+//
+// Note what these types do not carry: another player's PUUID. Riot's permanent
+// identifier never reaches a client — the Riot ID is what everything here is
+// keyed by.
+
+export interface FriendSummaryView {
+  riotId: string;
+}
+
+export interface FriendRequestView {
+  riotId: string;
+  direction: 'incoming' | 'outgoing';
+  createdAt: string;
+}
+
+export interface FriendsView {
+  optedIn: boolean;
+  friends: FriendSummaryView[];
+  pending: FriendRequestView[];
+}
+
+export interface LeaderboardRowView {
+  riotId: string;
+  games: number;
+  avgPlacement: number | null;
+  top4Rate: number | null;
+  rank: number | null;
+  isYou: boolean;
+  provisional: boolean;
+}
+
+export function getFriends(cookie: string): Promise<ApiResult<FriendsView>> {
+  return getJson<FriendsView>('/v1/friends', { cookie });
+}
+
+export function getFriendLeaderboard(
+  cookie: string,
+): Promise<ApiResult<{ rows: LeaderboardRowView[]; standing: string }>> {
+  return getJson<{ rows: LeaderboardRowView[]; standing: string }>('/v1/friends/leaderboard', {
+    cookie,
+  });
+}
+
+export function setFriendsOptIn(optIn: boolean): Promise<ApiResult<{ optedIn: boolean }>> {
+  return sendJson<{ optedIn: boolean }>('PUT', '/v1/friends/opt-in', { optIn });
+}
+
+export function sendFriendRequest(
+  riotId: string,
+): Promise<ApiResult<{ riotId: string; outcome: 'sent' | 'accepted' | 'exists' }>> {
+  return sendJson<{ riotId: string; outcome: 'sent' | 'accepted' | 'exists' }>(
+    'POST',
+    '/v1/friends/requests',
+    { riotId },
+  );
+}
+
+export function acceptFriendRequest(riotId: string): Promise<ApiResult<{ accepted: boolean }>> {
+  return sendJson<{ accepted: boolean }>('POST', '/v1/friends/requests/accept', { riotId });
+}
+
+/** Declines, cancels or unfriends — one operation, deliberately. */
+export function removeFriend(riotId: string): Promise<ApiResult<{ removed: boolean }>> {
+  return sendJson<{ removed: boolean }>('DELETE', '/v1/friends', { riotId });
+}

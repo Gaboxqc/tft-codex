@@ -22,6 +22,9 @@ import type { AugmentCounters } from '../domain/augment-tiering.js';
 import type { AugmentInternalRepository } from '../repositories/augment-internal-repository.js';
 import type { AugmentRepository, PublicAugmentRecord } from '../repositories/augment-repository.js';
 import type { CompMetadata, CompRepository } from '../repositories/comp-repository.js';
+import type { DeliveryRepository } from '../repositories/delivery-repository.js';
+import type { FriendRepository } from '../repositories/friend-repository.js';
+import type { FriendStats } from '../domain/leaderboard.js';
 import type { IngestionRepository } from '../repositories/ingestion-repository.js';
 import type { OlapReadRepository } from '../repositories/olap-repository.js';
 import type { ReferenceRepository } from '../repositories/reference-repository.js';
@@ -43,9 +46,15 @@ export const testConfig = (overrides: Partial<AppConfig> = {}): AppConfig => ({
   meta: { refreshIntervalMinutes: 30, compMinSampleSize: 200 },
   jwtSecret: 'test-secret-value-long-enough',
   webBaseUrl: 'http://localhost:3000',
+  apiPublicUrl: 'http://localhost:4000',
   rso: { clientId: 'test', clientSecret: 'secret', redirectUri: 'http://localhost:4000/cb' },
   privacy: { profileRetentionDays: 30 },
   compliance: { tier3RecommendationsConfirmed: false, tier3ConfirmationRef: null },
+  // Editorial routes are off unless a test opts in, mirroring production
+  // defaults: the guard is closed by default and has to be opened on purpose.
+  editorialToken: null,
+  drafter: null,
+  delivery: { webPush: null, email: null },
   ...overrides,
 });
 
@@ -207,6 +216,23 @@ export interface TestContextOptions {
   matches?: MatchSummary[];
   /** R8.2 — null means the draft summary is still awaiting review. */
   metaImpactSummary?: string | null;
+  emailStatus?: { address: string | null; verified: boolean };
+  friendsOptIn?: boolean;
+  friendStats?: FriendStats[];
+  pendingFriends?: {
+    puuid: string;
+    riotId: string;
+    direction: 'incoming' | 'outgoing';
+    createdAt: string;
+  }[];
+  /** Pending, unapproved draft (R8.2). */
+  metaSummaryDraft?: string | null;
+  balanceChanges?: {
+    entityType: 'champion' | 'trait' | 'item' | 'augment';
+    entityId: string;
+    summary: string;
+    source: 'data-dragon' | 'editorial';
+  }[];
   prefs?: { channel: string; category: string; enabled: boolean }[];
 }
 
@@ -546,7 +572,20 @@ export function buildTestContext(options: TestContextOptions = {}): {
         metaImpactSummary: options.metaImpactSummary ?? null,
       },
     ]),
-    findById: vi.fn(async () => null),
+    findById: vi.fn(async (id: string) =>
+      id === '17.9'
+        ? {
+            id: '17.9',
+            setNumber: 17,
+            setName: 'Into the Arcane',
+            releaseDate: '2026-07-30',
+            isCurrentPatch: true,
+            archived: false,
+            balanceChanges: options.balanceChanges ?? [],
+            metaImpactSummary: options.metaImpactSummary ?? null,
+          }
+        : null,
+    ),
     latest: vi.fn(async () => ({
       id: '17.9',
       setNumber: 17,
@@ -558,6 +597,22 @@ export function buildTestContext(options: TestContextOptions = {}): {
       metaImpactSummary: options.metaImpactSummary ?? null,
     })),
     approveMetaSummary: vi.fn(async () => undefined),
+    approveMetaSummaryAs: vi.fn(async () => undefined),
+    saveBalanceChanges: vi.fn(async () => undefined),
+    dataDragonVersion: vi.fn(async () => '16.16.1'),
+    saveMetaSummaryDraft: vi.fn(async () => undefined),
+    discardMetaSummaryDraft: vi.fn(async () => undefined),
+    metaSummaryReview: vi.fn(async (id: string) =>
+      id === '17.9'
+        ? {
+            draft: options.metaSummaryDraft ?? null,
+            draftedAt: options.metaSummaryDraft ? '2026-08-21T00:00:00.000Z' : null,
+            published: options.metaImpactSummary ?? null,
+            approvedBy: null,
+            approvedAt: null,
+          }
+        : null,
+    ),
     saveSnapshot: vi.fn(async () => undefined),
     listSnapshots: vi.fn(async () =>
       [...archived.values()].map(({ entries: _entries, ...summary }) => summary),
@@ -582,6 +637,55 @@ export function buildTestContext(options: TestContextOptions = {}): {
 
   const storedPrefs = new Map<string, unknown[]>();
   const storedBookmarks = new Map<string, { kind: string; targetId: string }[]>();
+
+  const friends = {
+    optInStatus: vi.fn(async () => options.friendsOptIn ?? false),
+    setOptIn: vi.fn(async () => undefined),
+    findByRiotId: vi.fn(async (riotId: string) =>
+      riotId.toLowerCase() === 'friend#euw' ? { puuid: 'puuid-2', riotId: 'Friend#EUW' } : null,
+    ),
+    request: vi.fn(async () => 'sent' as const),
+    accept: vi.fn(async (_addressee: string, requester: string) => requester === 'puuid-2'),
+    remove: vi.fn(async () => true),
+    pendingFor: vi.fn(async () => options.pendingFriends ?? []),
+    leaderboardFor: vi.fn(async () => options.friendStats ?? []),
+  } as unknown as FriendRepository;
+
+  const storedPush = new Map<
+    string,
+    { endpoint: string; keys: { p256dh: string; auth: string } }[]
+  >();
+
+  const delivery = {
+    saveSubscription: vi.fn(
+      async (
+        puuid: string,
+        subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
+      ) => {
+        const existing = storedPush.get(puuid) ?? [];
+        storedPush.set(puuid, [
+          ...existing.filter((entry) => entry.endpoint !== subscription.endpoint),
+          subscription,
+        ]);
+      },
+    ),
+    removeSubscription: vi.fn(async (puuid: string, endpoint: string) => {
+      const existing = storedPush.get(puuid) ?? [];
+      storedPush.set(
+        puuid,
+        existing.filter((entry) => entry.endpoint !== endpoint),
+      );
+      return existing.some((entry) => entry.endpoint === endpoint);
+    }),
+    countSubscriptions: vi.fn(async (puuid: string) => (storedPush.get(puuid) ?? []).length),
+    setEmail: vi.fn(async () => 'verification-token'),
+    verifyEmail: vi.fn(async (token: string) =>
+      token === 'verification-token' ? 'player@example.com' : null,
+    ),
+    clearEmail: vi.fn(async () => undefined),
+    emailStatus: vi.fn(async () => options.emailStatus ?? { address: null, verified: false }),
+    destinationFor: vi.fn(async () => ({ email: null, pushSubscriptions: [] })),
+  } as unknown as DeliveryRepository;
 
   const notifications = {
     prefsFor: vi.fn(async (puuid: string) => storedPrefs.get(puuid) ?? options.prefs ?? []),
@@ -628,6 +732,8 @@ export function buildTestContext(options: TestContextOptions = {}): {
       gameData,
       patches,
       notifications,
+      delivery,
+      friends,
       log: () => undefined,
     },
   };

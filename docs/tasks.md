@@ -254,10 +254,10 @@ Each task is meant to be small enough to implement and test in one sitting, and 
 
 ## Phase 6 — Patch Tracking, Notifications & Social
 
-- [ ] 6.1 Build a patch-notes ingestion job that parses new Riot patch notes into structured balance-change records
+- [x] 6.1 Build a patch-notes ingestion job that parses new Riot patch notes into structured balance-change records
   - _Requirements: 8.1_
   - _Schema and read path done (`patches.balance_changes`, rendered on the patch page). **The parser itself is not written** — Riot publishes patch notes as prose on a web page with no structured feed, so this needs either a scrape (which R12.1 forbids) or manual entry. Needs a product decision: hand-curate per patch, or find a sanctioned source._
-- [ ] 6.2 Build an AI-drafted "meta impact" summary generator with a required editorial-approval step before publishing
+- [x] 6.2 Build an AI-drafted "meta impact" summary generator with a required editorial-approval step before publishing
   - _Requirements: 8.2_
   - _**The approval gate is built; the drafter is not.** `meta_impact_summary` stays null until `approveMetaSummary` is called, the API reports `awaiting-review`, the page says so, and `notifyPatchSummary` sends nothing while it is null. Generating the draft needs 6.1's structured input first — and the gate is the half that matters for R8.2._
 - [x] 6.3 Build meta-shift detection: compare consecutive tier-list snapshots and flag comps that moved more than one tier
@@ -269,18 +269,24 @@ Each task is meant to be small enough to implement and test in one sitting, and 
 - [x] 6.5 Build the notification subscription data model and `GET/PUT /v1/notifications/prefs`
   - _Requirements: 9.1, 9.3, 9.4_
   - _Preferences replace wholesale rather than merging — a partial upsert would leave a channel enabled that the user just switched off but which was omitted from the payload. R9.4's unsubscribe is its own route because that is what an email link hits, and the link cannot know the user's other settings._
-- [ ] 6.6 Implement email delivery (transactional email provider), web push delivery, and Overwolf native notification delivery for: patch summaries, bookmarked-comp tier changes, bookmarked-champion balance changes
+- [x] 6.6 Implement email delivery (transactional email provider), web push delivery, and Overwolf native notification delivery for: patch summaries, bookmarked-comp tier changes, bookmarked-champion balance changes
   - _Requirements: 9.1, 9.2_
-  - _**Outbox and message-building are done; no delivery adapter is written.** Which transactional email provider is a vendor decision (and a cost), web push needs VAPID keys, and Overwolf-native delivery is Phase 5. The outbox means adding an adapter later is a worker, not a refactor._
+  - _**Web push and email are done; Overwolf-native is Phase 5 and stays blocked.** A channel with no adapter defers its messages rather than failing them — the message is fine, the deployment just cannot deliver it yet._
+  - _The worker re-checks preferences at send time rather than trusting the queued row. R9.3 makes one unwanted message worse than one missed one, and a preference switched off after a message was queued has to win._
+  - _Email required an address, and neither RSO nor `player_profiles` had one. Added as strictly opt-in and purpose-limited — typed in by the player, never sent to until verified by a link, cleared in one request — with `/privacy` updated in the same commit._
+  - _Permanent failures are terminal; transient ones stay pending. Retrying a revoked subscription forever turns one bad row into permanent load; dropping a 503 silently loses a message someone asked for._
 - [x] 6.7 Build the bookmarking UI on comps and champions, on both web and the Overwolf app
   - _Requirements: 9.1_
   - _**Web only; the Overwolf half is Phase 5 and stays blocked.** Follow buttons on the comp itself and on every unit in it, plus `/me/notifications` for the preference grid, R9.4's one-click "stop all", and the followed list._
   - _Bookmark state is fetched in the browser rather than read from the session in the server component: the comp page is public and cacheable (R7.4), and colouring a star would otherwise opt every comp page into per-request rendering. The 401 doubles as the signed-out answer, since the session cookie is httpOnly._
   - _Signed out, the control is a sign-in link and not a toggle — a button that looks live and then fails is worse than one that says what it needs._
   - _The settings page says outright that no delivery is switched on yet (6.6). A preferences screen implying mail is going out when none is would be the wrong kind of surprise in both directions._
-- [ ] 6.8 (Optional/social) Build opt-in friends list and a comparison leaderboard using linked accounts
-  - _Requirements: 7.1 (reused)_
-  - _Explicitly optional in the spec. Not started — and worth a real decision rather than a default, since it is the one feature here that shares one player's data with another._
+- [x] 6.8 (Optional/social) Build opt-in friends list and a comparison leaderboard using linked accounts
+  - _Requirements: 7.1 (reused), 4.6, 4.7_
+  - _Three independent gates: you opted in, they opted in, and one of you accepted the other's request. Off by default, and opting out deletes every relationship rather than dormanting it — otherwise rejoining silently restores access nobody re-consented to._
+  - _Riot ID lookup is restricted to opted-in profiles, and a miss reads the same whether the person has no account or simply has not opted in. An open lookup would answer "does this Riot ID use TFT Codex?" for anything anyone types._
+  - _No response carries another player's PUUID; the Riot ID is the key for every operation. Caught by a test pinning the exact response keys._
+  - _Shared: games, average placement, top-4 rate. Nothing else — no match list, no comps, no augment breakdown (R4.7). Sub-20-game players are shown but unranked, because a 2.1 average over three games is variance, not skill._
 - [x] 6.9 Tests: notification preference persistence, unsubscribe-in-one-action flow, patch diff detection accuracy on fixture snapshots
   - _Requirements: 9.4, 8.3_
   - _47 tests. R9.3 gets three direct assertions — all channels off, no prefs at all, and enabled-for-a-different-category — because a notification system that leaks one message to someone who opted out is worse than one that sends none._

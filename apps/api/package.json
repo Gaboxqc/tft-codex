@@ -13,9 +13,12 @@
     "test:compliance": "vitest run src/compliance",
     "migrate": "tsx src/db/migrate.ts",
     "crawl": "tsx src/ingestion/run-crawl.ts",
-    "aggregate": "tsx src/ingestion/run-aggregate.ts"
+    "aggregate": "tsx src/ingestion/run-aggregate.ts",
+    "patch-notes": "tsx src/ingestion/run-patch-notes.ts",
+    "notify": "tsx src/ingestion/run-notifications.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@clickhouse/client": "^1.12.1",
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.0.1",
@@ -24,11 +27,13 @@
     "fastify": "^5.4.0",
     "ioredis": "^5.9.1",
     "pg": "^8.16.3",
+    "web-push": "^3.6.7",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
     "@types/pg": "^8.15.4",
+    "@types/web-push": "^3.6.4",
     "tsx": "^4.20.3",
     "typescript": "~5.9",
     "vitest": "^3.2.4"

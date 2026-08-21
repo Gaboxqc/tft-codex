@@ -53,11 +53,14 @@ const keyOf = (channel: NotificationChannel, category: NotificationCategory): st
 export interface NotificationSettingsProps {
   initialPrefs: NotificationPrefView[];
   bookmarks: BookmarkView[];
+  /** Which channels this deployment can actually deliver on (task 6.6). */
+  channels?: Record<NotificationChannel, boolean> | undefined;
 }
 
 export function NotificationSettings({
   initialPrefs,
   bookmarks: initialBookmarks,
+  channels: available,
 }: NotificationSettingsProps) {
   const [enabled, setEnabled] = useState<ReadonlySet<string>>(
     () =>
@@ -141,15 +144,16 @@ export function NotificationSettings({
   return (
     <>
       {/*
-        Said up front rather than discovered later: the preferences are stored,
-        but the delivery adapters (task 6.6) are not built yet. A settings
-        screen implying mail is going out when none is would be the wrong kind
-        of surprise in both directions.
+        A switch for a channel this deployment cannot deliver on is a promise
+        we already know we are not keeping, so say so rather than letting
+        someone discover it by never receiving anything.
       */}
-      <p className="empty-state">
-        Delivery isn&apos;t switched on yet. We save your choices now so nothing can start without
-        them, but no messages are being sent.
-      </p>
+      {available && !available.email && !available.webpush && (
+        <p className="empty-state">
+          No delivery channel is configured here yet. Your choices are saved, but nothing can be
+          sent until one is switched on.
+        </p>
+      )}
 
       <section className="comp-detail__section">
         <h2>How you hear</h2>
@@ -162,6 +166,9 @@ export function NotificationSettings({
                 <th scope="col" key={channel.id}>
                   {channel.label}
                   {channel.note && <span className="prefs-table__note"> {channel.note}</span>}
+                  {available && !available[channel.id] && !channel.note && (
+                    <span className="prefs-table__note"> not configured</span>
+                  )}
                 </th>
               ))}
               <th scope="col">
