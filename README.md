@@ -97,6 +97,23 @@ npm run dev
 | `npm run test`      | Full test suite                             |
 | `npm run format`    | Prettier write                              |
 
+### Scheduled jobs
+
+Run from the API workspace (`--workspace @tft-codex/api`):
+
+| Job                   | What it does                                                                      |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `npm run crawl`       | Pulls matches from Riot into the ingestion queue                                  |
+| `npm run aggregate`   | Aggregates, scores and publishes the tier list                                    |
+| `npm run patch-notes` | Diffs Data Dragon into balance changes, then drafts the meta summary for review   |
+| `npm run notify`      | Drains the notification outbox through whichever delivery channels are configured |
+
+`patch-notes` accepts `-- --patch 17.9 --from 16.15.1 --to 16.16.1` to pin a
+backfill; by default it diffs the two newest Data Dragon versions into the
+current patch. Neither it nor `notify` publishes anything a human has not
+approved — a drafted meta summary stays in `meta_impact_draft` until it is
+approved through the editorial route.
+
 ## Repo layout
 
 ```
