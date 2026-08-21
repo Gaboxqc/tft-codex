@@ -255,22 +255,31 @@ Each task is meant to be small enough to implement and test in one sitting, and 
 
 - [ ] 6.1 Build a patch-notes ingestion job that parses new Riot patch notes into structured balance-change records
   - _Requirements: 8.1_
+  - _Schema and read path done (`patches.balance_changes`, rendered on the patch page). **The parser itself is not written** — Riot publishes patch notes as prose on a web page with no structured feed, so this needs either a scrape (which R12.1 forbids) or manual entry. Needs a product decision: hand-curate per patch, or find a sanctioned source._
 - [ ] 6.2 Build an AI-drafted "meta impact" summary generator with a required editorial-approval step before publishing
   - _Requirements: 8.2_
-- [ ] 6.3 Build meta-shift detection: compare consecutive tier-list snapshots and flag comps that moved more than one tier
+  - _**The approval gate is built; the drafter is not.** `meta_impact_summary` stays null until `approveMetaSummary` is called, the API reports `awaiting-review`, the page says so, and `notifyPatchSummary` sends nothing while it is null. Generating the draft needs 6.1's structured input first — and the gate is the half that matters for R8.2._
+- [x] 6.3 Build meta-shift detection: compare consecutive tier-list snapshots and flag comps that moved more than one tier
   - _Requirements: 8.3_
-- [ ] 6.4 Build the Patch History web page with browsable snapshots
+  - _Runs on publish, after the pointer flip, and swallows its own errors — the tier list is already live, so losing an entry of history beats a run that reports failure and retries. Added comps are reported separately from tier moves: a comp first appearing at C crossed the sample threshold, it did not fall._
+- [x] 6.4 Build the Patch History web page with browsable snapshots
   - _Requirements: 8.4_
-- [ ] 6.5 Build the notification subscription data model and `GET/PUT /v1/notifications/prefs`
+  - _Leads with meta shifts; the snapshot archive is the evidence behind them. Each snapshot carries the formula version that produced it._
+- [x] 6.5 Build the notification subscription data model and `GET/PUT /v1/notifications/prefs`
   - _Requirements: 9.1, 9.3, 9.4_
+  - _Preferences replace wholesale rather than merging — a partial upsert would leave a channel enabled that the user just switched off but which was omitted from the payload. R9.4's unsubscribe is its own route because that is what an email link hits, and the link cannot know the user's other settings._
 - [ ] 6.6 Implement email delivery (transactional email provider), web push delivery, and Overwolf native notification delivery for: patch summaries, bookmarked-comp tier changes, bookmarked-champion balance changes
   - _Requirements: 9.1, 9.2_
+  - _**Outbox and message-building are done; no delivery adapter is written.** Which transactional email provider is a vendor decision (and a cost), web push needs VAPID keys, and Overwolf-native delivery is Phase 5. The outbox means adding an adapter later is a worker, not a refactor._
 - [ ] 6.7 Build the bookmarking UI on comps and champions, on both web and the Overwolf app
   - _Requirements: 9.1_
+  - _API is done and tested (`GET/POST/DELETE /v1/bookmarks`). The web UI is not built; the Overwolf half is Phase 5._
 - [ ] 6.8 (Optional/social) Build opt-in friends list and a comparison leaderboard using linked accounts
   - _Requirements: 7.1 (reused)_
-- [ ] 6.9 Tests: notification preference persistence, unsubscribe-in-one-action flow, patch diff detection accuracy on fixture snapshots
+  - _Explicitly optional in the spec. Not started — and worth a real decision rather than a default, since it is the one feature here that shares one player's data with another._
+- [x] 6.9 Tests: notification preference persistence, unsubscribe-in-one-action flow, patch diff detection accuracy on fixture snapshots
   - _Requirements: 9.4, 8.3_
+  - _47 tests. R9.3 gets three direct assertions — all channels off, no prefs at all, and enabled-for-a-different-category — because a notification system that leaks one message to someone who opted out is worse than one that sends none._
 
 ## Cross-Cutting (ongoing, not a single phase)
 
