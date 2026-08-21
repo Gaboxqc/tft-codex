@@ -183,20 +183,28 @@ Each task is meant to be small enough to implement and test in one sitting, and 
 
 - [ ] 4.1 Build the board editor UI: hex-grid placement (or simplified front/back rows if full hex geometry is deferred), champion picker, item assignment per unit
   - _Requirements: 6.1_
-- [ ] 4.2 Build live trait-count computation as the board changes, including "one unit away from next breakpoint" highlighting
+- [x] 4.2 Build live trait-count computation as the board changes, including "one unit away from next breakpoint" highlighting
   - _Requirements: 6.2_
-- [ ] 4.3 Build `POST /v1/builder/comps` (save) and `GET /v1/builder/comps/:id` (load), with a URL-safe shareable ID
+  - _A champion counts once per trait however many copies are on the board, and emblems fall out of the same Set-keyed-by-champion mechanism rather than needing a special case. Sub-breakpoint traits stay in the panel marked inactive — "3 Vanguard, one more unlocks it" is the most useful thing it says._
+  - _Analysis requests carry a sequence number and stale responses are discarded, so a slow earlier request cannot land after a fast later one and leave the panel describing a board the player no longer has._
+- [x] 4.3 Build `POST /v1/builder/comps` (save) and `GET /v1/builder/comps/:id` (load), with a URL-safe shareable ID
   - _Requirements: 6.3_
-- [ ] 4.4 Implement signature matching against the registry so a saved custom board that matches a tracked comp displays that comp's live stats inline
+  - _12 random bytes, not a serial — a sequential id in a public URL lets anyone walk every board ever saved. Saving works logged out (R7.4); only updating needs a session, and it 404s rather than 403s on someone else's board so the id's existence is not confirmed._
+- [x] 4.4 Implement signature matching against the registry so a saved custom board that matches a tracked comp displays that comp's live stats inline
   - _Requirements: 6.4_
-- [ ] 4.5 Add an "import into builder" action on the Comp Detail page (Phase 1) that pre-fills the board editor
+  - _Reuses `detectComp` from the ingestion path, so a builder board is matched exactly the way a real match is rather than by a parallel implementation._
+- [x] 4.5 Add an "import into builder" action on the Comp Detail page (Phase 1) that pre-fills the board editor
   - _Requirements: 6.5_
-- [ ] 4.6 Add a rough tankiness/damage estimate heuristic (documented formula, clearly labeled as an estimate, not a simulator)
+- [x] 4.6 Add a rough tankiness/damage estimate heuristic (documented formula, clearly labeled as an estimate, not a simulator)
   - _Requirements: 6.1_
-- [ ] 4.7 Component and integration tests for trait counting, save/load round-trip, and signature matching
+  - _Emits a 0–100 index with a confidence that never reaches "high", ships its formula version, and lists what it ignored. A test asserts the result carries no placement or win-rate field — an estimate, not a forecast dressed up as one._
+- [x] 4.7 Component and integration tests for trait counting, save/load round-trip, and signature matching
   - _Requirements: 6.2, 6.3, 6.4_
-- [ ] 4.8 Build the multi-carry itemization optimizer (`POST /v1/items/optimize`): given held components and board units, suggest an allocation across units with trade-off explanations, as a builder/pre-post-game tool only (Tier-1, no live bench polling)
+  - _69 tests across the four areas. The share round-trip was also verified in a browser end to end: import → edit → save → reopen the link._
+- [x] 4.8 Build the multi-carry itemization optimizer (`POST /v1/items/optimize`): given held components and board units, suggest an allocation across units with trade-off explanations, as a builder/pre-post-game tool only (Tier-1, no live bench polling)
   - _Requirements: 16.1, 16.2, 16.3_
+  - _Greedy by role rather than an optimal assignment, deliberately: an optimum would maximise a board-strength number the player cannot see and does not share our weights, whereas carry-first matches how players actually reason. Every trade-off names both units, why the winner won, and how to overrule it._
+  - _Tier-1 by construction — it takes an explicit item list and has no parameter through which a live bench could reach it._
 
 ## Phase 5 — Overwolf Desktop Companion
 

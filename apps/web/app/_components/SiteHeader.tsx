@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: '/', label: 'Tier list' },
   { href: '/augments', label: 'Augments' },
   { href: '/reference', label: 'Breakpoints' },
+  { href: '/builder', label: 'Builder' },
   { href: '/me', label: 'Your games' },
 ] as const;
 

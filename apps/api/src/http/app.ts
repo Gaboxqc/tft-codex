@@ -14,6 +14,7 @@ import { registerComplianceGuard } from './compliance-plugin.js';
 import type { AppContext } from './context.js';
 import { registerAugmentRoutes } from './routes/augments.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerBuilderRoutes } from './routes/builder.js';
 import { registerCompRoutes } from './routes/comps.js';
 import { registerMetaRoutes } from './routes/meta.js';
 import { registerPlayerRoutes } from './routes/players.js';
@@ -66,6 +67,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await registerReferenceRoutes(app, context);
   await registerAuthRoutes(app, context);
   await registerPlayerRoutes(app, context);
+  await registerBuilderRoutes(app, context);
 
   app.setNotFoundHandler(async (request, reply) =>
     reply.status(404).send({ error: 'not_found', detail: `No route for ${request.url}` }),

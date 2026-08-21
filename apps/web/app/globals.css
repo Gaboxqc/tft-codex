@@ -778,3 +778,195 @@ a:focus-visible {
 .policy-list strong {
   color: var(--tftc-text-primary);
 }
+
+/* ── Comp builder ──────────────────────────────────────────────────────── */
+
+.builder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 22rem);
+  gap: var(--tftc-space-6);
+  align-items: start;
+}
+
+/* The trait panel drops below the board rather than squeezing beside it. */
+@media (max-width: 900px) {
+  .builder {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.builder__meta,
+.builder__add {
+  display: flex;
+  gap: var(--tftc-space-3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: var(--tftc-space-4);
+}
+
+.builder__meta div,
+.builder__add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tftc-space-1);
+}
+
+.builder__add {
+  flex-direction: row;
+  align-items: flex-end;
+}
+
+.builder label {
+  font-size: var(--tftc-text-caption-size);
+  color: var(--tftc-text-secondary);
+}
+
+.builder input {
+  background: var(--tftc-surface-1);
+  color: var(--tftc-text-primary);
+  border: 1px solid var(--tftc-surface-2);
+  border-radius: var(--tftc-radius-sm);
+  padding: var(--tftc-space-2) var(--tftc-space-3);
+  font: inherit;
+  font-size: var(--tftc-text-caption-size);
+}
+
+.builder input:focus-visible {
+  outline: 2px solid var(--tftc-cyan-300);
+  outline-offset: 2px;
+}
+
+.builder__warning {
+  background: var(--tftc-surface-2);
+  border-left: 3px solid var(--tftc-warning);
+  border-radius: 0 var(--tftc-radius-sm) var(--tftc-radius-sm) 0;
+  padding: var(--tftc-space-2) var(--tftc-space-3);
+  font-size: var(--tftc-text-caption-size);
+  margin: 0 0 var(--tftc-space-4);
+}
+
+.builder__units {
+  list-style: none;
+  margin: 0 0 var(--tftc-space-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tftc-space-2);
+}
+
+.builder__units li {
+  display: grid;
+  grid-template-columns: minmax(6rem, 10rem) auto minmax(0, 1fr) auto;
+  gap: var(--tftc-space-3);
+  align-items: center;
+  background: var(--tftc-surface-1);
+  border-radius: var(--tftc-radius-sm);
+  padding: var(--tftc-space-2) var(--tftc-space-3);
+}
+
+.builder__unit-name {
+  font-weight: 600;
+}
+
+.builder__star {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--tftc-tier-s);
+  font-size: 15px;
+  padding: 0 var(--tftc-space-1);
+}
+
+.builder__star:focus-visible {
+  outline: 2px solid var(--tftc-cyan-300);
+  outline-offset: 2px;
+}
+
+.builder__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--tftc-space-3);
+}
+
+.builder__status,
+.builder__share,
+.builder__estimate-note {
+  font-size: var(--tftc-text-caption-size);
+  color: var(--tftc-text-secondary);
+}
+
+.builder__panel {
+  background: var(--tftc-surface-1);
+  border: 1px solid var(--tftc-surface-2);
+  border-radius: var(--tftc-radius-md);
+  padding: var(--tftc-space-4);
+  position: sticky;
+  top: var(--tftc-space-4);
+}
+
+.builder__panel h2 {
+  font-family: var(--tftc-font-display);
+  font-size: var(--tftc-text-h2-size);
+  margin: 0 0 var(--tftc-space-3);
+}
+
+.builder__panel h2 + h2,
+.builder__panel dl + h2 {
+  margin-top: var(--tftc-space-6);
+}
+
+.trait-panel {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tftc-space-1);
+}
+
+.trait-panel__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--tftc-space-2);
+  align-items: baseline;
+  padding: var(--tftc-space-1) var(--tftc-space-2);
+  border-radius: var(--tftc-radius-sm);
+  font-size: var(--tftc-text-caption-size);
+  /* Inactive by default — dimmed, but still readable. */
+  color: var(--tftc-text-secondary);
+}
+
+.trait-panel__row--active {
+  background: var(--tftc-surface-2);
+  color: var(--tftc-text-primary);
+}
+
+/*
+ * R6.2's highlight. The hint text carries the same information, so this is
+ * emphasis rather than the only signal (design-system.md §7).
+ */
+.trait-panel__row--one-away {
+  border-left: 3px solid var(--tftc-cyan-400);
+}
+
+.trait-panel__count {
+  font-weight: 600;
+}
+
+.trait-panel__hint {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--tftc-text-secondary);
+}
+
+.trait-panel__row--one-away .trait-panel__hint {
+  color: var(--tftc-cyan-300);
+}
+
+.builder__caveats {
+  margin: var(--tftc-space-2) 0 0;
+  padding-left: var(--tftc-space-4);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--tftc-text-secondary);
+}

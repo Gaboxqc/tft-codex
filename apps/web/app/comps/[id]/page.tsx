@@ -80,6 +80,12 @@ export default async function CompPage({ params }: CompPageProps) {
           {comp.playstyle} · {comp.difficulty} · patch {comp.patch}
           {comp.altName ? ` · also called "${comp.altName}"` : ''}
         </p>
+        {/* R6.5 — start from the real thing rather than retyping it. */}
+        <p>
+          <Link className="tftc-btn tftc-btn--secondary" href={`/builder?import=${comp.id}`}>
+            Import into builder
+          </Link>
+        </p>
       </header>
 
       {/* R2.1 — the computed stat block, kept visually separate from the prose. */}
